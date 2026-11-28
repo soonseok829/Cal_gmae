@@ -1,1783 +1,1377 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>칼로리 키우기 3D - 캐릭터 선택 & 황금 레시피 도감</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Canvas Confetti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <style>
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.05);
-            border-radius: 8px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 0, 0, 0.4);
-        }
-
-        /* Speech Bubble Tail */
-        .bubble-tail::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-width: 8px 8px 0;
-            border-style: solid;
-            border-color: #ffffff transparent;
-            display: block;
-            width: 0;
-        }
-
-        /* Glow & Animations */
-        @keyframes pulse-subtle {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.03); opacity: 0.9; }
-        }
-        .animate-pulse-subtle {
-            animation: pulse-subtle 2s infinite ease-in-out;
-        }
-
-        @keyframes bounce-gentle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-        }
-        .animate-bounce-gentle {
-            animation: bounce-gentle 1.5s infinite ease-in-out;
-        }
-
-        .gold-glow {
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5), inset 0 0 15px rgba(251, 191, 36, 0.3);
-        }
-
-        canvas {
-            outline: none;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>칼로리 키우기 3D - 순순순석 & 어푸어푸</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-game {
+      font-family: 'Jua', sans-serif;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    .ui-layer {
+      position: relative;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .interactive {
+      pointer-events: auto;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(0) scale(0.9); opacity: 1; }
+      100% { transform: translateY(-70px) scale(1.15); opacity: 0; }
+    }
+    .float-text {
+      position: fixed;
+      font-family: 'Jua', sans-serif;
+      font-size: 1.6rem;
+      font-weight: bold;
+      pointer-events: none;
+      z-index: 50;
+      animation: floatUp 1.1s ease-out forwards;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    @keyframes popIn {
+      0% { transform: translate(-50%, 10px) scale(0.8); opacity: 0; }
+      100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    }
+    .speech-bubble {
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    /* 스크롤바 숨김 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col justify-center items-center p-2 sm:p-4 overflow-x-hidden">
+<body>
 
-    <!-- MAIN CONTAINER -->
-    <div class="w-full max-w-6xl bg-slate-800/80 backdrop-blur-md border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-[90vh]">
-        
-        <!-- ------------------------------------------------------------- -->
-        <!-- 1. LOBBY SCREEN (#lobbyScreen) -->
-        <!-- ------------------------------------------------------------- -->
-        <div id="lobbyScreen" class="flex-1 flex flex-col justify-between p-6 sm:p-10 relative">
-            <div class="text-center mt-4">
-                <div class="inline-block px-4 py-1.5 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-sm font-semibold tracking-wide mb-3">
-                    ✨ 3D 캐릭터 육성 &amp; 요리 조합 게임
-                </div>
-                <h1 class="text-4xl sm:text-5xl font-extrabold text-white tracking-tight drop-shadow-md">
-                    🍔 칼로리 키우기 3D 🍕
-                </h1>
-                <p class="text-slate-300 mt-2 text-base sm:text-lg max-w-xl mx-auto">
-                    캐릭터를 선택하고 최고의 <span class="text-amber-400 font-bold">황금 레시피 도감</span>을 완성해보세요!
-                </p>
-            </div>
+  <!-- 3D 캔버스 -->
+  <div id="canvas-container"></div>
 
-            <!-- Character Roster Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8 max-w-4xl mx-auto w-full">
-                
-                <!-- Character Card 1: 순순순석 -->
-                <div class="group bg-slate-800/90 hover:bg-slate-750 border-2 border-slate-700 hover:border-amber-400 rounded-3xl p-6 transition-all duration-300 shadow-lg hover:shadow-amber-500/10 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-full text-xs font-bold">
-                                ✨ 축복받은 유전자
-                            </span>
-                            <span class="text-xs text-slate-400 font-mono">ID: SUNSEOK</span>
-                        </div>
-                        
-                        <!-- Image Preview Box -->
-                        <div class="relative w-36 h-36 mx-auto mb-4 rounded-2xl overflow-hidden bg-slate-700 border-2 border-slate-600 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                            <img id="lobbyImgSunseok" src="sunseok_normal.jpg" alt="순순순석" class="w-full h-full object-cover" onerror="loadLobbyFallback('sunseok', this);">
-                        </div>
-                        
-                        <h2 class="text-2xl font-bold text-white text-center mb-2">순순순석</h2>
-                        <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-700/50 text-xs sm:text-sm text-slate-300 space-y-1.5">
-                            <p class="text-amber-300 font-semibold">🧬 패시브: [축복받은 유전자]</p>
-                            <p class="leading-relaxed text-slate-300">
-                                • 뭘 먹어도 살이 잘 안 찌는 체질! (기본 체중 증가량 <span class="text-emerald-400 font-bold">0.45배</span>)<br>
-                                • <span class="text-amber-300 font-bold">황금 조합</span> 섭취 시 3턴 동안 <span class="text-amber-400 font-bold">폭풍 흡수 모드 (1.5배)</span> 발동!
-                            </p>
-                        </div>
-                    </div>
-                    <button onclick="selectCharacter('sunseok')" class="mt-6 w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all text-base flex items-center justify-center gap-2">
-                        <span>순순순석으로 시작하기</span>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                    </button>
-                </div>
-
-                <!-- Character Card 2: 어푸어푸 -->
-                <div class="group bg-slate-800/90 hover:bg-slate-750 border-2 border-slate-700 hover:border-pink-400 rounded-3xl p-6 transition-all duration-300 shadow-lg hover:shadow-pink-500/10 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="px-3 py-1 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded-full text-xs font-bold">
-                                💧 물만 먹어도 찌는 체질
-                            </span>
-                            <span class="text-xs text-slate-400 font-mono">ID: EOPUEOPU</span>
-                        </div>
-                        
-                        <!-- Image Preview Box -->
-                        <div class="relative w-36 h-36 mx-auto mb-4 rounded-2xl overflow-hidden bg-slate-700 border-2 border-slate-600 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                            <img id="lobbyImgEopueopu" src="eopueopu_normal.jpg" alt="어푸어푸" class="w-full h-full object-cover" onerror="loadLobbyFallback('eopueopu', this);">
-                        </div>
-                        
-                        <h2 class="text-2xl font-bold text-white text-center mb-2">어푸어푸</h2>
-                        <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-700/50 text-xs sm:text-sm text-slate-300 space-y-1.5">
-                            <p class="text-pink-300 font-semibold">🧬 패시브: [물만 먹어도 찌는 체질]</p>
-                            <p class="leading-relaxed text-slate-300">
-                                • 살이 쉽게 찌는 체질! (기본 체중 증가량 <span class="text-rose-400 font-bold">1.6배</span>)<br>
-                                • <span class="text-cyan-300 font-bold">저칼로리 황금 조합</span> 섭취 시 5턴 동안 <span class="text-cyan-400 font-bold">기초대사량 폭발 (0.2배)</span> 발동!
-                            </p>
-                        </div>
-                    </div>
-                    <button onclick="selectCharacter('eopueopu')" class="mt-6 w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold rounded-xl shadow-lg shadow-pink-500/20 transition-all text-base flex items-center justify-center gap-2">
-                        <span>어푸어푸로 시작하기</span>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                    </button>
-                </div>
-
-            </div>
-
-            <!-- Footer Buttons in Lobby -->
-            <div class="flex justify-center items-center gap-4">
-                <button onclick="openPokedexModal()" class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-amber-300 font-semibold rounded-xl border border-amber-500/30 flex items-center gap-2 transition">
-                    <span>📖 황금 레시피 도감 확인</span>
-                    <span id="lobbyPokedexBadge" class="px-2 py-0.5 bg-amber-500/30 rounded-full text-xs text-amber-200">0/12</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- 2. GAME PLAY SCREEN (#gameScreen) -->
-        <!-- ------------------------------------------------------------- -->
-        <div id="gameScreen" class="hidden flex-1 flex flex-col">
-            
-            <!-- Top HUD Bar -->
-            <header class="bg-slate-900/90 border-b border-slate-700 p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
-                
-                <!-- Left: Lobby Return & Character Profile -->
-                <div class="flex items-center gap-3">
-                    <button onclick="returnToLobby()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs sm:text-sm font-semibold border border-slate-700 flex items-center gap-1 transition">
-                        <span>◀ 로비</span>
-                    </button>
-                    
-                    <div class="flex items-center gap-2.5 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-                        <div class="w-9 h-9 rounded-full overflow-hidden bg-slate-700 border border-slate-500 flex-shrink-0">
-                            <img id="hudCharAvatar" src="" alt="Avatar" class="w-full h-full object-cover">
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span id="hudCharName" class="text-sm font-bold text-white">순순순석</span>
-                                <span id="hudPassiveBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">패시브</span>
-                            </div>
-                            <p id="hudPassiveDesc" class="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-xs">패시브 설명</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Center: Weight Gauge Display -->
-                <div class="flex-1 max-w-xs mx-auto text-center px-2">
-                    <div class="flex justify-between items-center text-xs text-slate-400 mb-1">
-                        <span id="hudStatusBadge" class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">정상</span>
-                        <span class="font-mono font-bold text-amber-300 text-base" id="hudWeightText">55.0 kg</span>
-                    </div>
-                    <!-- Progress Bar -->
-                    <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-700 relative">
-                        <div id="weightProgressBar" class="h-full bg-gradient-to-r from-blue-400 via-emerald-400 via-amber-400 to-rose-500 transition-all duration-500 w-1/2"></div>
-                    </div>
-                    <div class="flex justify-between text-[10px] text-slate-500 mt-0.5 px-0.5">
-                        <span>20kg (마름)</span>
-                        <span>50kg</span>
-                        <span>100kg (통통)</span>
-                    </div>
-                </div>
-
-                <!-- Right: Action Modal Triggers -->
-                <div class="flex items-center gap-2">
-                    <button onclick="openPokedexModal()" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition">
-                        <span>📖 도감</span>
-                        <span id="hudPokedexCount" class="bg-amber-500/40 px-1.5 py-0.2 rounded-full text-[11px] text-amber-100">0/12</span>
-                    </button>
-                    <button onclick="openMinigameModal()" class="px-3 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition">
-                        <span>🏃‍♂️ 줄넘기</span>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Active Buff Status Bar (Appears when golden buff is active) -->
-            <div id="activeBuffBar" class="hidden bg-gradient-to-r from-amber-600/90 via-orange-600/90 to-amber-600/90 text-white px-4 py-2 text-xs sm:text-sm font-bold text-center border-b border-amber-400/50 flex items-center justify-center gap-2 shadow-lg animate-pulse-subtle">
-                <span class="text-base">✨</span>
-                <span id="activeBuffText">버프 활성화!</span>
-                <span class="text-base">✨</span>
-            </div>
-
-            <!-- Main Canvas & Food Interaction Container -->
-            <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 sm:p-5 overflow-y-auto">
-                
-                <!-- LEFT/CENTER: 3D Canvas Viewer & Speech Bubble (7 Cols) -->
-                <div class="lg:col-span-7 bg-slate-900/90 rounded-2xl border border-slate-700/80 relative overflow-hidden flex flex-col justify-between min-h-[380px] lg:min-h-[500px]">
-                    
-                    <!-- Canvas Canvas Container -->
-                    <div id="canvasContainer" class="w-full h-full absolute inset-0"></div>
-
-                    <!-- Speech Bubble Overlay -->
-                    <div id="speechBubble" class="absolute top-6 left-1/2 -translate-x-1/2 bg-white text-slate-900 px-4 py-2.5 rounded-2xl shadow-2xl border-2 border-amber-400 bubble-tail transition-all duration-300 transform scale-100 z-10 max-w-[85%] text-center">
-                        <p id="speechText" class="text-sm sm:text-base font-bold leading-snug">
-                            "오늘 뭐 맛있는 거 없나~?"
-                        </p>
-                    </div>
-
-                    <!-- Top Left Quick Weight Testers -->
-                    <div class="absolute top-4 left-4 z-10 flex flex-col gap-1.5 bg-slate-950/80 p-2 rounded-xl border border-slate-800 backdrop-blur">
-                        <span class="text-[10px] text-slate-400 font-bold px-1">⚙️ 체중 테스트</span>
-                        <div class="flex gap-1">
-                            <button onclick="setWeight(25)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 text-xs rounded font-semibold border border-blue-500/30">25kg (마름)</button>
-                            <button onclick="setWeight(55)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs rounded font-semibold border border-emerald-500/30">55kg (보통)</button>
-                            <button onclick="setWeight(85)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs rounded font-semibold border border-rose-500/30">85kg (통통)</button>
-                        </div>
-                    </div>
-
-                    <!-- Canvas Bottom Tip -->
-                    <div class="absolute bottom-3 left-4 right-4 z-10 flex justify-between items-center text-[11px] text-slate-400 bg-slate-950/70 px-3 py-1.5 rounded-lg border border-slate-800/80 backdrop-blur">
-                        <span>💡 마우스로 드래그하여 3D 캐릭터 각도를 회전해보세요!</span>
-                        <span id="canvasWeightDisplay" class="font-bold text-amber-300 font-mono">55.0 kg</span>
-                    </div>
-                </div>
-
-                <!-- RIGHT: Food Selection & Ingredient Customizer (5 Cols) -->
-                <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-700/80 p-4 flex flex-col justify-between space-y-4">
-                    
-                    <div>
-                        <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
-                            <h3 class="text-base font-bold text-white flex items-center gap-2">
-                                <span>🍽️ 오늘의 메뉴 선택</span>
-                            </h3>
-                            <span class="text-xs text-slate-400">커스텀 토핑으로 황금 조합을 찾아보세요!</span>
-                        </div>
-
-                        <!-- Food Icon List Grid (8 Items) -->
-                        <div class="grid grid-cols-4 gap-2 mb-4" id="foodGrid">
-                            <!-- Populated dynamically by JS -->
-                        </div>
-
-                        <!-- Selected Food Detail & Ingredient Checkboxes Box -->
-                        <div class="bg-slate-800/90 rounded-xl p-4 border border-slate-700 space-y-3">
-                            <div class="flex items-center justify-between border-b border-slate-700 pb-2.5">
-                                <div class="flex items-center gap-2.5">
-                                    <span id="selectedFoodIcon" class="text-3xl">🥗</span>
-                                    <div>
-                                        <h4 id="selectedFoodTitle" class="text-base font-bold text-white">샐러드</h4>
-                                        <p id="selectedFoodDesc" class="text-xs text-slate-400">신선한 채소가 들어간 기본 샐러드</p>
-                                    </div>
-                                </div>
-                                <button onclick="resetIngredients()" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition border border-slate-600">
-                                    🔄 기본 조합
-                                </button>
-                            </div>
-
-                            <!-- Ingredient Checkboxes -->
-                            <div class="space-y-1.5 my-2 max-h-48 overflow-y-auto pr-1" id="ingredientContainer">
-                                <!-- Checkboxes populated dynamically -->
-                            </div>
-
-                            <!-- Total Calorie Calculation Bar -->
-                            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex items-center justify-between">
-                                <span class="text-xs font-semibold text-slate-300">합산 칼로리</span>
-                                <div class="text-right">
-                                    <span id="totalCalorieText" class="text-lg font-extrabold text-amber-400 font-mono">250</span>
-                                    <span class="text-xs text-slate-400">kcal</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Feed Button -->
-                    <button id="feedButton" onclick="feedCharacter()" class="w-full py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-extrabold rounded-2xl shadow-xl shadow-orange-500/20 active:scale-98 transition text-lg flex items-center justify-center gap-2">
-                        <span>🍽️ 캐릭터에게 먹이기!</span>
-                    </button>
-
-                </div>
-
-            </div>
-        </div>
-
+  <!-- 1. 캐릭터 선택 로비 화면 -->
+  <div id="lobbyScreen" class="fixed inset-0 z-40 bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4 text-white interactive">
+    <div class="text-center mb-6">
+      <span class="inline-block px-3 py-1 bg-amber-400/20 text-amber-300 rounded-full text-xs font-bold tracking-wider mb-2 border border-amber-400/30">
+        3D CALORIE GROWTH SIMULATION
+      </span>
+      <h1 class="font-game text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-pink-200 to-cyan-200 drop-shadow">
+        칼로리 키우기 3D
+      </h1>
+      <p class="text-slate-300 text-sm mt-2">키울 캐릭터를 선택하세요! 체중에 따라 얼굴과 체형이 실시간으로 변합니다.</p>
     </div>
 
-    <!-- ------------------------------------------------------------- -->
-    <!-- MODAL 1: GOLDEN RECIPE POKEDEX MODAL (#pokedexModal) -->
-    <!-- ------------------------------------------------------------- -->
-    <div id="pokedexModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            
-            <!-- Modal Header -->
-            <div class="bg-slate-800 px-6 py-4 border-b border-slate-700 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl">📖</span>
-                    <div>
-                        <h2 class="text-xl font-bold text-white">황금 레시피 도감</h2>
-                        <p class="text-xs text-amber-400" id="pokedexProgressText">발견한 황금 조합: 0 / 12 (0%)</p>
-                    </div>
-                </div>
-                <button onclick="closePokedexModal()" class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center font-bold text-lg">×</button>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl w-full">
+      <!-- 순순순석 카드 -->
+      <div onclick="selectCharacter('sunseok')" class="group bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 hover:border-cyan-400 rounded-3xl p-5 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 shadow-xl">
+        <div class="flex items-center gap-4">
+          <div class="w-20 h-20 rounded-2xl bg-cyan-500/20 border-2 border-cyan-300 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+            <img id="lobby-img-sunseok" src="sunseok_normal.jpg" onerror="handleLobbyImgError(this, 'sunseok')" class="w-full h-full object-cover" alt="순순순석" />
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-game text-2xl text-white group-hover:text-cyan-300 transition">순순순석</h2>
+              <span class="text-xs px-2 py-0.5 bg-cyan-500/30 text-cyan-200 rounded-full font-bold">기초대사량 괴물</span>
             </div>
-
-            <!-- Category Filter Tabs -->
-            <div class="bg-slate-950/60 px-6 py-3 border-b border-slate-800 flex flex-wrap gap-2 text-xs">
-                <button onclick="filterPokedex('all')" class="pokedex-filter-btn px-3 py-1.5 rounded-lg font-bold bg-amber-500 text-slate-900">전체 (12)</button>
-                <button onclick="filterPokedex('low_cal')" class="pokedex-filter-btn px-3 py-1.5 rounded-lg font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">🟢 저칼로리 황금</button>
-                <button onclick="filterPokedex('high_cal')" class="pokedex-filter-btn px-3 py-1.5 rounded-lg font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">🔴 고칼로리 황금</button>
-                <button onclick="filterPokedex('weird')" class="pokedex-filter-btn px-3 py-1.5 rounded-lg font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">🟣 괴식 황금</button>
-            </div>
-
-            <!-- Recipes Grid -->
-            <div class="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-4" id="pokedexGrid">
-                <!-- Recipe Cards rendered dynamically -->
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="bg-slate-800 px-6 py-3 border-t border-slate-700 flex justify-between items-center text-xs text-slate-400">
-                <button onclick="resetPokedexProgress()" class="hover:text-rose-400 underline">도감 수집 기록 초기화</button>
-                <button onclick="closePokedexModal()" class="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl">닫기</button>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- ------------------------------------------------------------- -->
-    <!-- MODAL 2: JUMP ROPE MINI-GAME MODAL (#minigameModal) -->
-    <!-- ------------------------------------------------------------- -->
-    <div id="minigameModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-6 text-center space-y-4">
-            
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                    <span>🏃‍♂️ 칼로리 태우기 줄넘기</span>
-                </h3>
-                <button onclick="closeMinigameModal()" class="text-slate-400 hover:text-white font-bold text-xl">×</button>
-            </div>
-
-            <p class="text-xs text-slate-300">
-                <span class="text-emerald-400 font-bold">[스페이스바]</span> 또는 <span class="text-emerald-400 font-bold">[화면 클릭]</span>으로 줄이 발밑에 올 때 정확히 점프하세요!<br>
-                10회 성공 시 체중이 <span class="text-amber-300 font-bold">0.5kg</span> 감량됩니다!
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              뭘 먹어도 살이 잘 안 찌는 축복받은 체질! 하지만 <span class="text-amber-300 font-bold">황금 조합</span>을 먹으면 3턴 동안 칼로리를 <span class="text-amber-300 font-bold">1.5배</span> 흡수합니다.
             </p>
-
-            <!-- Mini Game Canvas Canvas -->
-            <div class="relative w-full h-64 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden flex flex-col justify-center items-center cursor-pointer" id="minigameArea" onclick="handleJumpRopeInput()">
-                
-                <canvas id="jumpRopeCanvas" class="w-full h-full absolute inset-0"></canvas>
-                
-                <!-- Game UI Overlay -->
-                <div class="absolute top-3 left-4 text-left">
-                    <span class="text-xs text-slate-400">성공 점프</span>
-                    <div id="minigameScore" class="text-2xl font-extrabold text-emerald-400 font-mono">0회</div>
-                </div>
-
-                <div class="absolute top-3 right-4 text-right">
-                    <span class="text-xs text-slate-400">감량된 체중</span>
-                    <div id="minigameBurned" class="text-2xl font-extrabold text-amber-400 font-mono">-0.0 kg</div>
-                </div>
-
-                <div id="minigamePrompt" class="absolute bottom-6 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-4 py-1.5 rounded-full text-xs font-bold animate-pulse">
-                    클릭 또는 Space 키를 눌러 점프!
-                </div>
-            </div>
-
-            <button onclick="closeMinigameModal()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold rounded-xl shadow-lg">
-                완료하고 체중 반영하기
-            </button>
+          </div>
         </div>
-    </div>
+        <div class="mt-4 pt-3 border-t border-white/10 flex justify-between text-xs text-slate-300">
+          <span>기본 흡수율: <strong class="text-cyan-300">0.55x</strong></span>
+          <span>황금버프: <strong class="text-amber-300">1.5x (3턴)</strong></span>
+          <span class="text-cyan-300 font-bold group-hover:translate-x-1 transition">플레이 →</span>
+        </div>
+      </div>
 
-    <!-- ------------------------------------------------------------- -->
-    <!-- MODAL 3: GOLDEN RECIPE DISCOVERY ANNOUNCEMENT POPUP -->
-    <!-- ------------------------------------------------------------- -->
-    <div id="goldenDiscoveryModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="bg-gradient-to-b from-amber-900/90 to-slate-900 border-2 border-amber-400 w-full max-w-md rounded-3xl shadow-2xl p-6 text-center space-y-4 gold-glow transform transition-all scale-100 animate-bounce-gentle">
-            
-            <div class="text-5xl">✨🍳✨</div>
-            <span class="inline-block px-3 py-1 bg-amber-400 text-slate-950 font-black rounded-full text-xs">
-                NEW 황금 레시피 발견!
-            </span>
-            
-            <h3 id="discoveredRecipeTitle" class="text-2xl font-black text-amber-300 drop-shadow">
-                이슬만 먹고 사는 선녀 정식
-            </h3>
-
-            <p id="discoveredRecipeLore" class="text-xs text-slate-200 bg-slate-950/60 p-3 rounded-xl border border-amber-500/30 italic">
-                "칼로리 계산의 경지에 도달한 선녀가 마신다는 극강의 저칼로리 조합."
+      <!-- 어푸어푸 카드 -->
+      <div onclick="selectCharacter('eopu')" class="group bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 hover:border-pink-400 rounded-3xl p-5 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 shadow-xl">
+        <div class="flex items-center gap-4">
+          <div class="w-20 h-20 rounded-2xl bg-pink-500/20 border-2 border-pink-300 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+            <img id="lobby-img-eopu" src="eopu_normal.jpg" onerror="handleLobbyImgError(this, 'eopu')" class="w-full h-full object-cover" alt="어푸어푸" />
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-game text-2xl text-white group-hover:text-pink-300 transition">어푸어푸</h2>
+              <span class="text-xs px-2 py-0.5 bg-pink-500/30 text-pink-200 rounded-full font-bold">물만 마셔도 찜</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              물만 마셔도 살이 차오르는 극강의 흡수 체질! 단, <span class="text-emerald-300 font-bold">저칼로리 황금 조합</span> 성공 시 5턴 동안 칼로리를 <span class="text-emerald-300 font-bold">0.2배</span>만 흡수합니다.
             </p>
-
-            <div id="discoveredBuffDesc" class="bg-amber-500/20 border border-amber-400/40 p-3 rounded-xl text-xs text-amber-200 font-bold">
-                🔥 특수 패시브 모드가 턴 동안 발동합니다!
-            </div>
-
-            <button onclick="closeGoldenDiscoveryModal()" class="w-full py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-base rounded-xl shadow-lg">
-                확인 &amp; 먹이기 지속하기
-            </button>
+          </div>
         </div>
+        <div class="mt-4 pt-3 border-t border-white/10 flex justify-between text-xs text-slate-300">
+          <span>기본 흡수율: <strong class="text-pink-300">1.65x</strong></span>
+          <span>저칼로리 버프: <strong class="text-emerald-300">0.2x (5턴)</strong></span>
+          <span class="text-pink-300 font-bold group-hover:translate-x-1 transition">플레이 →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 인게임 HUD -->
+  <div id="gameHud" class="ui-layer hidden w-full h-full flex flex-col justify-between p-4">
+    <!-- 상단 바 -->
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <!-- 상태창 -->
+      <div class="interactive bg-white/90 backdrop-blur-md rounded-2xl p-3.5 shadow-lg border border-slate-200/80 min-w-[230px]">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <span id="hudCharName" class="font-game text-xl text-slate-800">순순순석</span>
+            <span id="hudStateBadge" class="text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700">표준 체형</span>
+          </div>
+          <button onclick="returnToLobby()" class="text-xs text-slate-400 hover:text-slate-700 underline">캐릭터 변경</button>
+        </div>
+
+        <div class="flex items-baseline gap-2 my-1">
+          <span id="hudWeight" class="font-game text-3xl text-indigo-600">55.0</span>
+          <span class="text-sm font-bold text-slate-500">kg</span>
+          <span id="hudTurn" class="ml-auto text-xs font-bold text-slate-400">TURN 1</span>
+        </div>
+
+        <!-- 체중 구간 게이지 -->
+        <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden relative my-1.5">
+          <div id="weightBar" class="h-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-rose-500 transition-all duration-300" style="width: 35%;"></div>
+        </div>
+        <div class="flex justify-between text-[10px] text-slate-400 font-bold">
+          <span>&lt;30kg 마름</span>
+          <span>표준</span>
+          <span>80kg&le; 통통</span>
+        </div>
+
+        <!-- 활성 패시브/버프 표시 -->
+        <div id="buffBanner" class="mt-2 text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 text-slate-600 font-medium">
+          패시브 대기 중
+        </div>
+      </div>
+
+      <!-- 우측 액션 버튼 -->
+      <div class="interactive flex flex-col gap-2 items-end">
+        <div class="flex gap-2">
+          <button onclick="openDexModal()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-game px-3.5 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition transform active:scale-95">
+            <span>📖 황금레시피 도감</span>
+            <span id="dexCountBadge" class="bg-slate-900 text-amber-300 text-xs px-1.5 py-0.5 rounded-full">0/12</span>
+          </button>
+          <button onclick="openMiniGame()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-game px-3.5 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition transform active:scale-95">
+            <span>🏃 줄넘기 운동</span>
+          </button>
+        </div>
+
+        <!-- 빠른 체중 테스트 버튼 -->
+        <div class="bg-white/80 backdrop-blur px-2.5 py-1.5 rounded-xl shadow border border-slate-200 flex items-center gap-1.5 text-xs">
+          <span class="text-slate-500 font-bold">체형 테스트:</span>
+          <button onclick="setDebugWeight(26)" class="px-2 py-0.5 bg-cyan-100 hover:bg-cyan-200 text-cyan-800 rounded font-bold">26kg</button>
+          <button onclick="setDebugWeight(55)" class="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-bold">55kg</button>
+          <button onclick="setDebugWeight(85)" class="px-2 py-0.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-bold">85kg</button>
+        </div>
+      </div>
     </div>
 
-    <!-- ------------------------------------------------------------- -->
-    <!-- JAVASCRIPT GAME LOGIC -->
-    <!-- ------------------------------------------------------------- -->
-    <script>
-        /* ===================================================================
-           1. GAME STATE & DATA STRUCTURES
-           =================================================================== */
-        const GAME_STATE = {
-            character: 'sunseok', // 'sunseok' | 'eopueopu'
-            weight: 55.0,        // kg
-            buffTurns: 0,        // Remaining turns of active golden buff
-            buffType: null,      // 'sunseok_boost' | 'eopueopu_shield'
-            discoveredRecipes: new Set(), // Recipe IDs stored
-            selectedFoodId: 'salad',
-            selectedIngredients: {},
-            minigameJumps: 0,
-            minigameBurnedKg: 0
+    <!-- 캐릭터 말풍선 (화면 중앙 상단부) -->
+    <div id="speechBubble" class="speech-bubble self-center bg-white/95 backdrop-blur-md border-2 border-slate-800 rounded-2xl px-5 py-2.5 shadow-xl max-w-xs sm:max-w-md text-center relative -mt-8">
+      <p id="speechText" class="font-game text-base sm:text-lg text-slate-800">오늘 뭐 먹을까? 배고파!</p>
+      <div class="w-3 h-3 bg-white border-r-2 border-b-2 border-slate-800 transform rotate-45 absolute -bottom-2 left-1/2 -translate-x-1/2"></div>
+    </div>
+
+    <!-- 하단 음식 선택 바 -->
+    <div class="interactive bg-white/90 backdrop-blur-md rounded-3xl p-3 shadow-2xl border border-slate-200/80 max-w-4xl w-full mx-auto">
+      <div class="flex items-center justify-between px-2 mb-2">
+        <span class="font-game text-base text-slate-700">🍽️ 먹일 음식 선택 (클릭해서 재료 커스텀 가능)</span>
+        <span class="text-xs text-slate-400">기준 유지 칼로리: 400 kcal</span>
+      </div>
+      <div id="foodList" class="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+        <!-- JS로 동적 생성 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 음식 재료 커스텀 모달 -->
+  <div id="foodModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 interactive">
+    <div class="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-3">
+          <span id="modalFoodIcon" class="text-4xl">🍔</span>
+          <div>
+            <h3 id="modalFoodName" class="font-game text-2xl text-slate-800">음식 이름</h3>
+            <p id="modalFoodDesc" class="text-xs text-slate-500">기본 설명</p>
+          </div>
+        </div>
+        <button onclick="closeFoodModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="my-4">
+        <p class="text-xs font-bold text-slate-500 mb-2">✨ 추가 / 제외 재료 선택 (조합에 따라 황금 레시피 발동!)</p>
+        <div id="modalIngredients" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+          <!-- 체크박스 목록 -->
+        </div>
+      </div>
+
+      <div class="bg-slate-50 rounded-2xl p-3 mb-4 flex items-center justify-between">
+        <div>
+          <span class="text-xs text-slate-500 block">예상 총 칼로리</span>
+          <span id="modalTotalCal" class="font-game text-2xl text-indigo-600">500 kcal</span>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-slate-500 block">예상 체중 변화</span>
+          <span id="modalWeightDiff" class="font-game text-lg text-rose-500">+0.5 kg</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <button onclick="feedDefaultFood()" class="py-3 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-game text-base transition">
+          기본 설정으로 먹이기
+        </button>
+        <button onclick="feedCustomFood()" class="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-game text-base shadow-lg transition">
+          이 조합으로 먹이기!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 황금 레시피 도감 모달 -->
+  <div id="dexModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 interactive">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-5 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="font-game text-2xl text-amber-500">📖 전설의 황금 레시피 도감</h3>
+          <p class="text-xs text-slate-500">특정 음식과 재료를 조합하면 숨겨진 황금 레시피가 해금됩니다!</p>
+        </div>
+        <button onclick="closeDexModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold">✕</button>
+      </div>
+      <div id="dexGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto my-4 pr-1">
+        <!-- 도감 카드 목록 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 줄넘기 미니게임 모달 -->
+  <div id="miniGameModal" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 interactive text-white">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
+      <span class="text-xs px-2.5 py-1 bg-indigo-500/30 text-indigo-300 rounded-full font-bold">CALORIE BURN MINI-GAME</span>
+      <h3 class="font-game text-3xl mt-2 text-amber-300">⚡ 폭풍 줄넘기</h3>
+      <p class="text-xs text-slate-300 mt-1">10초 동안 버튼을 연타해서 칼로리를 불태우세요!</p>
+
+      <div class="my-5 bg-slate-900/90 rounded-2xl p-4 border border-slate-700">
+        <div class="flex justify-around items-center">
+          <div>
+            <span class="text-xs text-slate-400 block">남은 시간</span>
+            <span id="mgTimer" class="font-game text-3xl text-rose-400">10.0s</span>
+          </div>
+          <div>
+            <span class="text-xs text-slate-400 block">줄넘기 횟수</span>
+            <span id="mgCount" class="font-game text-3xl text-emerald-400">0회</span>
+          </div>
+        </div>
+        <div class="mt-3 pt-3 border-t border-slate-800 text-xs text-amber-300 font-bold">
+          소모 예정 체중: -<span id="mgBurnWeight">0.00</span> kg
+        </div>
+      </div>
+
+      <button id="mgJumpBtn" onclick="doJumpRope()" class="w-full py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-game text-2xl shadow-lg active:scale-95 transition">
+        점프! (연타 / 스페이스바)
+      </button>
+      <button onclick="closeMiniGame()" class="mt-3 text-xs text-slate-400 hover:text-white underline">닫기</button>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. 캐릭터 데이터 & 대사 / 패시브 설정
+    // ==========================================
+    const CHARACTERS = {
+      sunseok: {
+        id: 'sunseok',
+        name: '순순순석',
+        baseFiles: {
+          normal: 'sunseok_normal',
+          fat: 'sunseok_fat',
+          thin: 'sunseok_thin'
+        },
+        hairColor: 0x1a1a22,
+        shirtColor: 0x1e293b,
+        // 뭘 먹어도 살이 잘 안 찌는 체질 (기본 흡수율 0.55배), 황금 조합 시 3턴간 1.5배 흡수
+        getMultiplier: (state) => state.buffTurns > 0 ? 1.5 : 0.55,
+        passiveDesc: '기초대사량 폭발 (기본 흡수 0.55배)',
+        buffDesc: (turns) => `🔥 황금조합 각성! 칼로리 1.5배 흡수 (${turns}턴 남음)`,
+        dialogues: {
+          start: [
+            '나 순순순석, 먹어도 살 안 찌는 체질이지~',
+            '오늘 메뉴가 뭐야? 다 먹어치워 주겠어!',
+            '칼로리? 그게 뭔데? 먹는 건가?'
+          ],
+          eatNormal: [
+            '음~ 맛있는데 배가 금방 꺼지는 기분이야!',
+            '역시 난 기초대사량이 남다르다니까~',
+            '한 그릇 더 먹어도 끄떡없겠는데?'
+          ],
+          eatHigh: [
+            '이 정도 고칼로리쯤이야 내 위장이 다 태워버리지!',
+            '살 찌려고 작정하고 먹었는데 왜 안 찌지?',
+            '크~ 기름진 게 들어가니까 이제 좀 사람 같네!'
+          ],
+          eatLow: [
+            '풀떼기만 먹으면 나 바람에 날아간다...!',
+            '이거 먹으니까 숨만 쉬어도 살 빠지는 중...',
+            '단백질이랑 지방을 내놔라!!'
+          ],
+          golden: [
+            '우오오!! 이 황금 조합은 미쳤다! 온몸에 영양분이 흡수된다!! (3턴간 1.5배)',
+            '미각 폭발!! 지금부터 먹는 건 전부 내 살과 피가 된다!!',
+            '전설의 레시피 발견! 벌크업 모드 가동!!'
+          ],
+          fat: [
+            '어라...? 나도 80kg을 넘기는 날이 오다니... 턱선이 사라졌어!',
+            '볼살이 너무 빵빵해서 앞이 잘 안 보여...',
+            '몸이 무거워서 살랑살랑이 아니라 쿵쾅쿵쾅이야!'
+          ],
+          thin: [
+            '30kg 미만 돌파... 광대뼈로 종이도 자르겠어...',
+            '어지러워... 햄버거 패티 5장 추가해서 급히 수혈해줘!',
+            '바람 불면 날아갈 것 같아... 살려줘...'
+          ]
+        }
+      },
+      eopu: {
+        id: 'eopu',
+        name: '어푸어푸',
+        baseFiles: {
+          normal: 'eopu_normal',
+          fat: 'eopu_fat',
+          thin: 'eopu_thin'
+        },
+        hairColor: 0x141419,
+        shirtColor: 0x0f172a,
+        // 물만 먹어도 살이 찌는 체질 (기본 흡수율 1.65배), 저칼로리 황금조합 시 5턴간 0.2배 흡수
+        getMultiplier: (state) => state.buffTurns > 0 ? 0.2 : 1.65,
+        passiveDesc: '수분조차 지방으로! (기본 흡수 1.65배)',
+        buffDesc: (turns) => `✨ 디톡스 황금버프! 칼로리 0.2배만 흡수 (${turns}턴 남음)`,
+        dialogues: {
+          start: [
+            '안녕! 난 어푸어푸야. 물 한 잔 마셨는데 1kg 찐 것 같아...',
+            '오늘은 제발 저칼로리 황금 조합 좀 찾아줘!',
+            '숨만 쉬어도 칼로리가 쌓이는 기분이야...'
+          ],
+          eatNormal: [
+            '맛있게 먹긴 했는데... 체중계 올라가기 무섭다 ㅠㅠ',
+            '어푸어푸... 방금 먹은 거 전부 볼살로 가는 소리 들려!',
+            '맛있으면 0칼로리라는데 왜 나한테만 2배로 적용돼?!'
+          ],
+          eatHigh: [
+            '으아악!! 이거 먹으면 바로 80kg 직행인데 너무 맛있어!!',
+            '입은 행복한데 턱선이 비명을 지르고 있어...!',
+            '치팅데이라고 치자... 내일부터 진짜 굶는다!'
+          ],
+          eatLow: [
+            '샐러드를 먹었는데 왜 살이 찌는 거지?! 억울해!',
+            '저칼로리 황금 레시피를 조합해야 이 체질을 이길 수 있어!',
+            '풀잎에도 칼로리가 이렇게 많았나...'
+          ],
+          golden: [
+            '찾았다!! 기적의 저칼로리 황금 레시피! 이제 5턴간 뭘 먹어도 안 쪄!!',
+            '몸이 깃털처럼 가벼워지는 디톡스 각성! 지금 폭식해도 0.2배 흡수!',
+            '어푸어푸 대성공! 신진대사 풀가동 모드 돌입!'
+          ],
+          fat: [
+            '결국 80kg 돌파... 볼살이 모찌떡처럼 늘어났어 어푸어푸!',
+            '이중턱이 생겨버렸어... 당장 줄넘기 하러 가자!!',
+            '거울 보고 깜짝 놀랐네... 볼이 화면을 꽉 채웠어!'
+          ],
+          thin: [
+            '세상에! 내가 30kg 미만이 되다니... 턱선이 베일 것 같아!',
+            '너무 말라서 뺨이 쏙 들어갔어... 맛있는 거 조금만 먹자!',
+            '어푸어푸 인생 최저 몸무게 달성! 근데 좀 어지러워...'
+          ]
+        }
+      }
+    };
+
+    // ==========================================
+    // 2. 음식 & 재료 커스텀 데이터 + 12종 황금 레시피
+    // ==========================================
+    const FOOD_MENU = [
+      {
+        id: 'salad', name: '그린 샐러드', icon: '🥗', baseCal: 180, isLowCal: true,
+        desc: '신선한 채소 위주의 가벼운 식단',
+        ingredients: [
+          { id: 'chicken_breast', name: '훈제 닭가슴살 추가', cal: 110, default: false },
+          { id: 'lemon_juice', name: '생레몬즙 드레싱', cal: 15, default: false },
+          { id: 'avocado', name: '아보카도 슬라이스', cal: 90, default: false },
+          { id: 'bacon_bits', name: '베이컨 칩 & 마요소스', cal: 240, default: false }
+        ]
+      },
+      {
+        id: 'americano', name: '아이스 아메리카노', icon: '🧊', baseCal: 15, isLowCal: true,
+        desc: '카페인 충전용 깔끔한 커피',
+        ingredients: [
+          { id: 'shot_add', name: '에스프레소 샷 추가', cal: 5, default: false },
+          { id: 'cinnamon', name: '시나몬 파우더 톡톡', cal: 10, default: false },
+          { id: 'whipping', name: '생크림 휘핑 산더미', cal: 280, default: false },
+          { id: 'syrup', name: '바닐라 시럽 4펌프', cal: 160, default: false }
+        ]
+      },
+      {
+        id: 'chicken_soup', name: '닭가슴살 포케', icon: '🥙', baseCal: 320, isLowCal: true,
+        desc: '현미밥과 닭가슴살이 어우러진 건강식',
+        ingredients: [
+          { id: 'brown_rice_half', name: '밥 절반 덜어내기', cal: -100, default: false },
+          { id: 'egg_white', name: '삶은 달걀 흰자 2개', cal: 35, default: false },
+          { id: 'seaweed', name: '해초 샐러드 듬뿍', cal: 25, default: false },
+          { id: 'spicy_mayo', name: '스파이시 마요 폭탄', cal: 220, default: false }
+        ]
+      },
+      {
+        id: 'konjac', name: '곤약 비빔면', icon: '🍜', baseCal: 140, isLowCal: true,
+        desc: '칼로리 부담을 확 낮춘 탱글한 면 요리',
+        ingredients: [
+          { id: 'cucumber', name: '오이채 산더미', cal: 15, default: false },
+          { id: 'boiled_egg', name: '반숙란 1개', cal: 75, default: false },
+          { id: 'vinegar', name: '사과식초 2스푼', cal: 10, default: false },
+          { id: 'pork_belly_sub', name: '차돌박이 200g 토핑', cal: 520, default: false }
+        ]
+      },
+      {
+        id: 'samgyeopsal', name: '삼겹살 구이', icon: '🥓', baseCal: 680, isLowCal: false,
+        desc: '지글지글 구워 먹는 한국인의 소울푸드',
+        ingredients: [
+          { id: 'ssam', name: '상추·깻잎 쌈채소', cal: 20, default: true },
+          { id: 'garlic', name: '구운 마늘 & 쌈장', cal: 45, default: true },
+          { id: 'fried_rice', name: 'K-디저트 볶음밥 추가', cal: 420, default: false },
+          { id: 'soju_pair', name: '탄산음료 2캔 곁들이기', cal: 220, default: false }
+        ]
+      },
+      {
+        id: 'malatang', name: '마라탕', icon: '🍲', baseCal: 620, isLowCal: false,
+        desc: '얼얼하고 중독적인 국물 요리',
+        ingredients: [
+          { id: 'bokchoy', name: '청경채 & 숙주 듬뿍', cal: 30, default: true },
+          { id: 'bunmoja', name: '분모자 & 중국당면 폭탄', cal: 380, default: false },
+          { id: 'lamb', name: '양고기 200g 추가', cal: 310, default: false },
+          { id: 'guobaorou', name: '꿔바로우 미니 추가', cal: 450, default: false }
+        ]
+      },
+      {
+        id: 'burger', name: '수제 치즈버거', icon: '🍔', baseCal: 650, isLowCal: false,
+        desc: '육즙 가득한 패티와 고소한 번',
+        ingredients: [
+          { id: 'double_patty', name: '더블 비프 패티', cal: 340, default: false },
+          { id: 'cheddar', name: '체다치즈 3장 추가', cal: 210, default: false },
+          { id: 'fries', name: '감자튀김 라지 + 치즈소스', cal: 460, default: false },
+          { id: 'zero_coke', name: '제로 콜라로 변경', cal: 0, default: true }
+        ]
+      },
+      {
+        id: 'cake', name: '딸기 생크림 케이크', icon: '🍰', baseCal: 540, isLowCal: false,
+        desc: '달콤함의 끝판왕 디저트',
+        ingredients: [
+          { id: 'extra_berry', name: '생딸기 2배 토핑', cal: 40, default: true },
+          { id: 'choco_drizzle', name: '누텔라 초코 드리즐', cal: 260, default: false },
+          { id: 'ice_cream', name: '바닐라 젤라또 2스쿱', cal: 290, default: false },
+          { id: 'mascarpone', name: '마스카포네 크림 추가', cal: 230, default: false }
+        ]
+      }
+    ];
+
+    // 12종 황금 레시피 도감 (저칼로리 6종 + 고칼로리 6종)
+    const GOLDEN_RECIPES = [
+      {
+        id: 'gr1', name: '모델의 시크릿 디톡스 볼', foodId: 'salad',
+        req: ['chicken_breast', 'lemon_juice'], forbid: ['bacon_bits', 'avocado'],
+        isLowCal: true, hint: '그린 샐러드 + 닭가슴살 + 생레몬즙만 깔끔하게!'
+      },
+      {
+        id: 'gr2', name: '아이돌 붓기 제거 아아', foodId: 'americano',
+        req: ['shot_add', 'cinnamon'], forbid: ['whipping', 'syrup'],
+        isLowCal: true, hint: '아메리카노에 샷 추가 + 시나몬 파우더 조합!'
+      },
+      {
+        id: 'gr3', name: '바디프로필 클린 포케', foodId: 'chicken_soup',
+        req: ['brown_rice_half', 'egg_white', 'seaweed'], forbid: ['spicy_mayo'],
+        isLowCal: true, hint: '포케 밥 절반 덜기 + 달걀 흰자 + 해초 샐러드!'
+      },
+      {
+        id: 'gr4', name: '새벽 야식 죄책감 제로면', foodId: 'konjac',
+        req: ['cucumber', 'vinegar'], forbid: ['pork_belly_sub', 'boiled_egg'],
+        isLowCal: true, hint: '곤약 비빔면 + 오이채 + 사과식초 상큼 조합!'
+      },
+      {
+        id: 'gr5', name: '초원 위의 아보카도 풀숲', foodId: 'salad',
+        req: ['avocado', 'lemon_juice'], forbid: ['bacon_bits'],
+        isLowCal: true, hint: '그린 샐러드 + 아보카도 + 생레몬즙의 건강한 지방!'
+      },
+      {
+        id: 'gr6', name: '수분 충전 순수 카페인', foodId: 'americano',
+        req: [], forbid: ['shot_add', 'cinnamon', 'whipping', 'syrup'],
+        isLowCal: true, hint: '아메리카노에 아무것도 넣지 않은 순정 그 자체!'
+      },
+      {
+        id: 'gr7', name: '한국인 국룰 삼겹살 정석', foodId: 'samgyeopsal',
+        req: ['ssam', 'garlic', 'fried_rice'], forbid: [],
+        isLowCal: false, hint: '삼겹살 + 쌈채소 + 마늘 + 마무리 볶음밥!'
+      },
+      {
+        id: 'gr8', name: '혈관 풀충전 마라 풀코스', foodId: 'malatang',
+        req: ['bunmoja', 'lamb', 'guobaorou'], forbid: [],
+        isLowCal: false, hint: '마라탕 + 분모자 + 양고기 + 꿔바로우 풀옵션!'
+      },
+      {
+        id: 'gr9', name: '천조국 심장마비 버거세트', foodId: 'burger',
+        req: ['double_patty', 'cheddar', 'fries'], forbid: [],
+        isLowCal: false, hint: '버거에 더블패티 + 체다치즈 + 감자튀김까지!'
+      },
+      {
+        id: 'gr10', name: '당뇨 주의보 스윗 폭탄', foodId: 'cake',
+        req: ['choco_drizzle', 'ice_cream', 'mascarpone'], forbid: [],
+        isLowCal: false, hint: '케이크에 초코 + 젤라또 + 마스카포네 크림 전부 추가!'
+      },
+      {
+        id: 'gr11', name: '단백질 벌크업 괴물 버거', foodId: 'burger',
+        req: ['double_patty', 'zero_coke'], forbid: ['fries', 'cheddar'],
+        isLowCal: false, hint: '더블 패티에 양심상 제로 콜라만 곁들인 헬창 조합!'
+      },
+      {
+        id: 'gr12', name: '휘핑 산더미 뚱카롱급 커피', foodId: 'americano',
+        req: ['whipping', 'syrup'], forbid: [],
+        isLowCal: false, hint: '아메리카노에 휘핑크림 + 바닐라 시럽 듬뿍!'
+      }
+    ];
+
+    // ==========================================
+    // 3. 게임 전역 상태 관리
+    // ==========================================
+    const gameState = {
+      charKey: 'sunseok',
+      weight: 55.0,
+      turn: 1,
+      buffTurns: 0,
+      faceStage: 'normal', // 'thin' | 'normal' | 'fat'
+      unlockedRecipes: new Set(),
+      selectedFood: null
+    };
+
+    // ==========================================
+    // 4. Three.js 3D 씬 & 입체 사람 두상 모델링
+    // ==========================================
+    let scene, camera, renderer, characterGroup;
+    let headGroup, headMesh, jawMesh, hairGroup, bodyMesh, leftArm, rightArm, leftLeg, rightLeg;
+    let faceMaterial;
+    let jumpVelocity = 0;
+    let isJumping = false;
+    let clock = new THREE.Clock();
+
+    // 텍스처 캐시 (캐릭터별, 상태별)
+    const textureCache = {};
+
+    function initThreeJS() {
+      const container = document.getElementById('canvas-container');
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 1.35, 5.4);
+      camera.lookAt(0, 0.95, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // 조명 세팅
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.78);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+      dirLight.position.set(3, 6, 5);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      scene.add(dirLight);
+
+      const rimLight = new THREE.DirectionalLight(0xc7d2fe, 0.35);
+      rimLight.position.set(-4, 3, -3);
+      scene.add(rimLight);
+
+      // 바닥 받침대
+      const stageGeo = new THREE.CylinderGeometry(1.5, 1.65, 0.16, 48);
+      const stageMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.05 });
+      const stageMesh = new THREE.Mesh(stageGeo, stageMat);
+      stageMesh.position.y = -0.08;
+      stageMesh.receiveShadow = true;
+      scene.add(stageMesh);
+
+      // 캐릭터 루트 그룹
+      characterGroup = new THREE.Group();
+      scene.add(characterGroup);
+
+      buildHumanCharacterMesh();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    }
+
+    // 구(Sphere)가 아닌 입체적인 사람 두상 + 정면 텍스처 매핑
+    function buildHumanCharacterMesh() {
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0xfad7c3, roughness: 0.65 });
+      const shirtMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+
+      // 1) 다리
+      const legGeo = new THREE.CylinderGeometry(0.14, 0.12, 0.75, 20);
+      leftLeg = new THREE.Mesh(legGeo, pantsMat);
+      leftLeg.position.set(-0.22, 0.38, 0);
+      leftLeg.castShadow = true;
+      characterGroup.add(leftLeg);
+
+      rightLeg = new THREE.Mesh(legGeo, pantsMat);
+      rightLeg.position.set(0.22, 0.38, 0);
+      rightLeg.castShadow = true;
+      characterGroup.add(rightLeg);
+
+      // 2) 몸통 (체중에 따라 X, Z 볼륨이 크게 변함)
+      const bodyGeo = new THREE.SphereGeometry(0.46, 32, 32);
+      bodyGeo.scale(1.0, 1.35, 0.82);
+      bodyMesh = new THREE.Mesh(bodyGeo, shirtMat);
+      bodyMesh.position.set(0, 1.15, 0);
+      bodyMesh.castShadow = true;
+      characterGroup.add(bodyMesh);
+
+      // 3) 목
+      const neckGeo = new THREE.CylinderGeometry(0.14, 0.16, 0.25, 20);
+      const neckMesh = new THREE.Mesh(neckGeo, skinMat);
+      neckMesh.position.set(0, 1.75, 0);
+      characterGroup.add(neckMesh);
+
+      // 4) 입체 사람 머리 그룹
+      headGroup = new THREE.Group();
+      headGroup.position.set(0, 2.28, 0);
+      characterGroup.add(headGroup);
+
+      // 얼굴 메인 두상: 앞뒤가 살짝 납작하고 턱선으로 좁아지는 인체 두상 형태
+      const headGeo = new THREE.SphereGeometry(0.52, 48, 48);
+      // 버텍스 변형으로 이마는 둥글고 아래턱은 갸름한 사람 얼굴 윤곽 생성
+      const posAttr = headGeo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        let x = posAttr.getX(i);
+        let y = posAttr.getY(i);
+        let z = posAttr.getZ(i);
+
+        // 세로 비율 약간 길게 (사람 얼굴 비율 1 : 1.18)
+        y *= 1.18;
+        // 앞뒤 깊이감 조정
+        z *= 0.92;
+
+        // 턱 부분(y < 0)은 아래로 내려갈수록 좁아지게 조형
+        if (y < 0) {
+          const factor = 1 + (y * 0.38); // 턱 끝으로 갈수록 갸름해짐
+          x *= Math.max(0.68, factor);
+          if (z > 0) z *= Math.max(0.78, factor);
+        }
+        posAttr.setXYZ(i, x, y, z);
+      }
+      headGeo.computeVertexNormals();
+
+      faceMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.55,
+        metalness: 0.02
+      });
+
+      headMesh = new THREE.Mesh(headGeo, faceMaterial);
+      headMesh.castShadow = true;
+      // Three.js Sphere UV는 -X 방향이 중앙(U=0.5)이므로 Y축 기준 -90도(-Math.PI/2) 회전시켜 정면(+Z)을 향하게 고정!
+      headMesh.rotation.y = -Math.PI / 2;
+      headGroup.add(headMesh);
+
+      // 살쪘을 때 도드라지는 하관/볼살 볼륨 메쉬 (평소엔 숨겨져 있다가 체중 증가 시 팽창)
+      const jawGeo = new THREE.SphereGeometry(0.42, 32, 32);
+      jawGeo.scale(1.15, 0.65, 0.95);
+      jawMesh = new THREE.Mesh(jawGeo, skinMat);
+      jawMesh.position.set(0, -0.26, 0.05);
+      jawMesh.scale.set(0.01, 0.01, 0.01);
+      headGroup.add(jawMesh);
+
+      // 뒷머리 & 옆머리 입체 헤어 캡 (사진 텍스처의 뒷면이 늘어나 보이는 현상 방지)
+      hairGroup = new THREE.Group();
+      const backHairGeo = new THREE.SphereGeometry(0.545, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.68);
+      backHairGeo.scale(1.02, 1.18, 0.96);
+      const hairMat = new THREE.MeshStandardMaterial({ color: 0x18181f, roughness: 0.85 });
+      const backHair = new THREE.Mesh(backHairGeo, hairMat);
+      // 뒤통수 쪽을 덮도록 회전
+      backHair.rotation.x = -0.28;
+      backHair.position.set(0, 0.04, -0.04);
+      hairGroup.add(backHair);
+      headGroup.add(hairGroup);
+
+      // 5) 팔 (몸통 두께에 맞춰 바깥으로 벌어짐)
+      const armGeo = new THREE.CylinderGeometry(0.11, 0.09, 0.68, 20);
+      leftArm = new THREE.Mesh(armGeo, shirtMat);
+      leftArm.position.set(-0.56, 1.22, 0);
+      leftArm.rotation.z = 0.22;
+      leftArm.castShadow = true;
+      characterGroup.add(leftArm);
+
+      rightArm = new THREE.Mesh(armGeo, shirtMat);
+      rightArm.position.set(0.56, 1.22, 0);
+      rightArm.rotation.z = -0.22;
+      rightArm.castShadow = true;
+      characterGroup.add(rightArm);
+    }
+
+    // ==========================================
+    // 5. 이미지 로더 (확장자 자동 탐색 + 정면 얼굴 크롭 캔버스 매핑)
+    // ==========================================
+    function handleLobbyImgError(imgEl, charKey) {
+      const base = CHARACTERS[charKey].baseFiles.normal;
+      if (!imgEl.dataset.triedPng) {
+        imgEl.dataset.triedPng = '1';
+        imgEl.src = base + '.png';
+      } else if (!imgEl.dataset.triedJpeg) {
+        imgEl.dataset.triedJpeg = '1';
+        imgEl.src = base + '.jpeg';
+      } else {
+        // 모든 외부 이미지가 없을 때 로비 썸네일용 Fallback 그리기
+        imgEl.src = createFallbackFaceCanvas(charKey, 'normal').toDataURL();
+      }
+    }
+
+    // 사진을 3D 두상 정면(+Z)에 얼굴 이목구비가 정확히 오도록 UV 캔버스에 합성
+    function buildFaceTextureFromImage(img, charKey, stage) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      const char = CHARACTERS[charKey];
+      const bgHex = '#' + char.hairColor.toString(16).padStart(6, '0');
+
+      // 전체 배경은 머리카락 어두운 톤으로 채워 옆/뒷면 이음새가 자연스럽게 연결되도록 처리
+      ctx.fillStyle = bgHex;
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // Sphere UV에서 U=0.5(가로 중앙 512px)가 정면(+Z)
+      // 증명사진의 얼굴 영역을 정면 중앙에 배치
+      const faceWidth = stage === 'fat' ? 540 : (stage === 'thin' ? 440 : 485);
+      const faceHeight = 680;
+      const drawX = (1024 - faceWidth) / 2;
+      const drawY = 165;
+
+      // 타원형 클리핑으로 사진 외곽의 흰 배경을 부드럽게 블렌딩
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(512, 510, faceWidth * 0.48, faceHeight * 0.48, 0, 0, Math.PI * 2);
+      ctx.clip();
+
+      // 이미지 상단~턱선까지 크롭해서 그리기
+      const sx = img.width * 0.12;
+      const sy = img.height * 0.06;
+      const sw = img.width * 0.76;
+      const sh = img.height * 0.78;
+      ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, faceWidth, faceHeight);
+      ctx.restore();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    // 외부 파일이 아직 없을 때를 위한 정면 캐릭터 일러스트 Fallback
+    function createFallbackFaceCanvas(charKey, stage) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      const isEopu = charKey === 'eopu';
+      ctx.fillStyle = isEopu ? '#141419' : '#1a1a22';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // 정면 얼굴형 (U=0.5 중앙)
+      const cheekW = stage === 'fat' ? 215 : (stage === 'thin' ? 140 : 175);
+      ctx.fillStyle = '#fad7c3';
+      ctx.beginPath();
+      ctx.ellipse(512, 520, cheekW, 230, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 살쪘을 때 이중턱 음영
+      if (stage === 'fat') {
+        ctx.strokeStyle = '#e0a98f';
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.arc(512, 660, 110, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+      }
+
+      // 앞머리
+      ctx.fillStyle = isEopu ? '#141419' : '#1a1a22';
+      ctx.beginPath();
+      ctx.arc(512, 410, 200, Math.PI, 0);
+      ctx.fill();
+      if (isEopu) {
+        // 시스루 뱅
+        for (let x = 380; x <= 640; x += 42) {
+          ctx.fillRect(x, 360, 18, 95);
+        }
+      } else {
+        // 5:5 가르마
+        ctx.beginPath();
+        ctx.moveTo(512, 340);
+        ctx.lineTo(350, 470);
+        ctx.lineTo(350, 340);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(512, 340);
+        ctx.lineTo(674, 470);
+        ctx.lineTo(674, 340);
+        ctx.fill();
+      }
+
+      // 눈, 코, 입
+      ctx.fillStyle = '#1e1b18';
+      ctx.beginPath();
+      ctx.arc(445, 505, 18, 0, Math.PI * 2);
+      ctx.arc(579, 505, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 볼터치
+      ctx.fillStyle = isEopu ? 'rgba(244, 114, 182, 0.35)' : 'rgba(251, 146, 60, 0.25)';
+      ctx.beginPath();
+      ctx.arc(420, 555, stage === 'fat' ? 36 : 24, 0, Math.PI * 2);
+      ctx.arc(604, 555, stage === 'fat' ? 36 : 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 입
+      ctx.strokeStyle = '#be123c';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(512, 600, 34, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    // 확장자(.jpg -> .png -> .jpeg) 자동 순차 로딩 후 텍스처 적용
+    function loadCharacterFaceTexture(charKey, stage) {
+      const cacheKey = `${charKey}_${stage}`;
+      if (textureCache[cacheKey]) {
+        applyTextureToHead(textureCache[cacheKey]);
+        return;
+      }
+
+      const baseName = CHARACTERS[charKey].baseFiles[stage];
+      const extensions = ['.jpg', '.png', '.jpeg'];
+      let attempt = 0;
+
+      function tryLoadNext() {
+        if (attempt >= extensions.length) {
+          // 모든 확장자 실패 시 Fallback 캔버스 텍스처 사용
+          const fallbackTex = createFallbackFaceCanvas(charKey, stage);
+          textureCache[cacheKey] = fallbackTex;
+          if (gameState.charKey === charKey && gameState.faceStage === stage) {
+            applyTextureToHead(fallbackTex);
+          }
+          return;
+        }
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        const url = baseName + extensions[attempt];
+        attempt++;
+
+        img.onload = () => {
+          const tex = buildFaceTextureFromImage(img, charKey, stage);
+          textureCache[cacheKey] = tex;
+          if (gameState.charKey === charKey && gameState.faceStage === stage) {
+            applyTextureToHead(tex);
+          }
         };
-
-        // Character Data Definitions
-        const CHARACTERS = {
-            sunseok: {
-                id: 'sunseok',
-                name: '순순순석',
-                passiveName: '축복받은 유전자',
-                passiveDesc: '기본 증가량 0.45배! 황금 레시피 먹으면 3턴간 1.5배 폭풍 흡수!',
-                avatarNormal: 'sunseok_normal.jpg',
-                avatarFat: 'sunseok_fat.jpg',
-                avatarThin: 'sunseok_thin.jpg',
-                baseMultiplier: 0.45,
-                hairStyle: 'parted', // 5:5 parted dark hair
-                dialogue: {
-                    idle: [
-                        "오늘 뭐 맛있는 거 없나~?",
-                        "살 좀 찌고 싶다... 후우",
-                        "아무리 먹어도 안 찌는데 어떡하지?",
-                        "배고파! 맛있는 조합으로 줘!"
-                    ],
-                    eatNormal: [
-                        "음~ 소화가 5초 만에 되는 기분이야.",
-                        "냠냠! 이것쯤이야 가볍지!",
-                        "오 꽤 맛있는데? 칼로리는 어디 갔지?"
-                    ],
-                    eatHighCal: [
-                        "우와 칼로리 폭탄이다! 드디어 살 좀 찌려나?",
-                        "행복하다... 살로 안 가고 근육이 되는 느낌!"
-                    ],
-                    eatLowCal: [
-                        "이건... 씹는 시간 동안 칼로리가 다 태워지겠는데?",
-                        "샐러드는 간식이지!"
-                    ],
-                    buffTriggered: [
-                        "🔥 폭풍 흡수 모드 온!! 다 내 배로 들어와라!",
-                        "이 조합 대박이다! 세포가 영양분을 스펀지처럼 빨아들여!",
-                        "3턴 동안 칼로리 풀가동이다아앗!"
-                    ],
-                    thin: [
-                        "바람 불면 날아갈 것 같아... 고칼로리 줘...",
-                        "뼈밖에 안 남았어! 삼겹살이 필요해!"
-                    ],
-                    fat: [
-                        "드디어 살이 쪘다!! 묵직하고 든든하구만!",
-                        "바지가 좀 끼는 것 같지만 이 정도야 뭐!"
-                    ]
-                }
-            },
-            eopueopu: {
-                id: 'eopueopu',
-                name: '어푸어푸',
-                passiveName: '물만 먹어도 찌는 체질',
-                passiveDesc: '기본 증가량 1.6배! 저칼로리 황금 조합 먹으면 5턴간 0.2배만 흡수!',
-                avatarNormal: 'eopueopu_normal.jpg',
-                avatarFat: 'eopueopu_fat.jpg',
-                avatarThin: 'eopueopu_thin.jpg',
-                baseMultiplier: 1.6,
-                hairStyle: 'long_bangs', // Long hair with see-through bangs & necklace
-                dialogue: {
-                    idle: [
-                        "물만 마셨는데 0.5kg 증량된 기분은 착각일까...?",
-                        "오늘은 제발 가볍게 먹자... 부탁이야!",
-                        "저칼로리 황금 조합이 절실해...",
-                        "체중계 보기 무서워서 살짝 피하는 중..."
-                    ],
-                    eatNormal: [
-                        "흑... 맛있는데 뱃살이 즉시 늘어나는 게 느껴져.",
-                        "이 칼로리가 다 어디로 가겠어... 내 허벅지..."
-                    ],
-                    eatHighCal: [
-                        "경악! 혈관에 지방이 차오른다아아!",
-                        "맛은 있는데... 내일 아침 내 모습이 두려워!"
-                    ],
-                    eatLowCal: [
-                        "휴... 그나마 죄책감 없는 깔끔한 식사!",
-                        "저칼로리라 안심... 일까?"
-                    ],
-                    buffTriggered: [
-                        "✨ 기초대사량 폭발!! 5턴 동안 뭐든 다 태워버린다!",
-                        "이 식단은 기적이야! 살이 쏙쏙 빠지는 기분!",
-                        "칼로리 0.2배 흡수 쉴드 생성 완료!!"
-                    ],
-                    thin: [
-                        "내가... 마를 날이 오다니?! 믿을 수 없어!",
-                        "가벼워서 날아갈 것 같아! 이 몸매 유지하고 싶어!"
-                    ],
-                    fat: [
-                        "물만 먹었는데 지구가 날 당기는 힘이 강해졌어...",
-                        "굴러다니는 게 걸어다니는 것보다 빠를 지도..."
-                    ]
-                }
-            }
+        img.onerror = () => {
+          tryLoadNext();
         };
-
-        /* ===================================================================
-           2. FOODS & 12 GOLDEN RECIPES DATA
-           =================================================================== */
-        const FOOD_DATA = {
-            salad: {
-                id: 'salad', name: '샐러드', icon: '🥗', baseCal: 120, desc: '신선한 야채 가득',
-                ingredients: [
-                    { id: 'chicken_topping', name: '닭가슴살 토핑', cal: 80, default: false },
-                    { id: 'avocado', name: '아보카도 추가', cal: 90, default: false },
-                    { id: 'dressing_remove', name: '드레싱 빼기', cal: -80, default: false },
-                    { id: 'cheese_flakes', name: '치즈 가루 추가', cal: 110, default: false }
-                ]
-            },
-            americano: {
-                id: 'americano', name: '아메리카노', icon: '☕', baseCal: 10, desc: '쌉싸름한 원두 커피',
-                ingredients: [
-                    { id: 'ice_lots', name: '얼음 많이', cal: 0, default: false },
-                    { id: 'shot_add', name: '샷 추가', cal: 5, default: false },
-                    { id: 'syrup_remove', name: '시럽 빼기', cal: 0, default: false },
-                    { id: 'water_lots', name: '물 많이', cal: 0, default: false },
-                    { id: 'whipped_cream', name: '휘핑크림 추가', cal: 250, default: false },
-                    { id: 'cheese_add', name: '치즈 추가', cal: 160, default: false }
-                ]
-            },
-            chicken_breast: {
-                id: 'chicken_breast', name: '닭가슴살', icon: '🍗', baseCal: 150, desc: '고단백 다이어트 식단',
-                ingredients: [
-                    { id: 'broccoli', name: '브로콜리 추가', cal: 20, default: false },
-                    { id: 'cherry_tomato', name: '방울토마토 추가', cal: 10, default: false },
-                    { id: 'sauce_remove', name: '소스 빼기', cal: -40, default: false },
-                    { id: 'mayo_add', name: '마요네즈 듬뿍', cal: 220, default: false }
-                ]
-            },
-            samgyeopsal: {
-                id: 'samgyeopsal', name: '삼겹살', icon: '🥓', baseCal: 700, desc: '노릇노릇 구운 삼겹살',
-                ingredients: [
-                    { id: 'cheese_add', name: '치즈 추가', cal: 250, default: false },
-                    { id: 'fried_rice', name: '치즈 볶음밥 추가', cal: 500, default: false },
-                    { id: 'veggie_remove', name: '쌈채소 안 먹기', cal: 0, default: false },
-                    { id: 'choco_syrup', name: '초코 시럽 뿌리기', cal: 150, default: false }
-                ]
-            },
-            maratang: {
-                id: 'maratang', name: '마라탕', icon: '🍲', baseCal: 600, desc: '얼얼하고 매콤한 마라탕',
-                ingredients: [
-                    { id: 'bunmoja', name: '분모자 추가', cal: 350, default: false },
-                    { id: 'guobaorou', name: '꿔바로우 추가', cal: 500, default: false },
-                    { id: 'chinese_noodle', name: '중국당면 추가', cal: 300, default: false },
-                    { id: 'beef', name: '우삼겹 추가', cal: 300, default: false }
-                ]
-            },
-            chicken: {
-                id: 'chicken', name: '후라이드 치킨', icon: '🍗', baseCal: 900, desc: '바삭바삭한 치킨',
-                ingredients: [
-                    { id: 'cabbage_lots', name: '양배추 샐러드 많이', cal: 40, default: false },
-                    { id: 'skin_remove', name: '튀김옷 떼고 먹기', cal: -300, default: false },
-                    { id: 'sauce_remove', name: '양념 소스 빼기', cal: -100, default: false },
-                    { id: 'cheeseball', name: '치즈볼 추가', cal: 400, default: false },
-                    { id: 'french_fries', name: '감자튀김 추가', cal: 300, default: false },
-                    { id: 'yangnyeom_add', name: '양념 소스 듬뿍', cal: 200, default: false }
-                ]
-            },
-            cake: {
-                id: 'cake', name: '조각 케이크', icon: '🍰', baseCal: 450, desc: '달콤한 디저트',
-                ingredients: [
-                    { id: 'cream_double', name: '생크림 2배', cal: 300, default: false },
-                    { id: 'choco_syrup', name: '초코 시럽', cal: 150, default: false },
-                    { id: 'ice_cream', name: '아이스크림 추가', cal: 250, default: false },
-                    { id: 'berry_remove', name: '과일 토핑 빼기', cal: -30, default: false }
-                ]
-            },
-            pizza: {
-                id: 'pizza', name: '피자', icon: '🍕', baseCal: 800, desc: '갓 구운 콤비네이션 피자',
-                ingredients: [
-                    { id: 'cheese_crust', name: '치즈크러스트 추가', cal: 350, default: false },
-                    { id: 'pepperoni_add', name: '페퍼로니 폭탄', cal: 250, default: false },
-                    { id: 'garlic_dipping_2', name: '갈릭디핑소스 2개', cal: 250, default: false }
-                ]
-            }
-        };
-
-        // 12 GOLDEN RECIPES LIST
-        const GOLDEN_RECIPES = [
-            {
-                id: 'r1',
-                name: '이슬만 먹고 사는 선녀 정식',
-                category: 'low_cal',
-                foodId: 'americano',
-                required: ['ice_lots', 'shot_add', 'syrup_remove'],
-                forbidden: ['whipped_cream', 'cheese_add', 'water_lots'],
-                hint: '아메리카노에 얼음과 샷을 추가하고 시럽을 쏙 뺀다면...?',
-                lore: '칼로리 계산의 경지에 도달한 선녀가 마신다는 극강의 저칼로리 에스프레소 브루잉.'
-            },
-            {
-                id: 'r2',
-                name: '풀떼기 풀코스',
-                category: 'low_cal',
-                foodId: 'salad',
-                required: ['chicken_topping', 'avocado', 'dressing_remove'],
-                forbidden: ['cheese_flakes'],
-                hint: '샐러드에 닭가슴살과 아보카도를 얹고 드레싱을 과감히 포기해보자.',
-                lore: '드레싱의 유혹을 참아낸 자만이 맛볼 수 있는 숲속 챔피언의 건강식.'
-            },
-            {
-                id: 'r3',
-                name: '양심에 찔린 다이어터',
-                category: 'low_cal',
-                foodId: 'chicken_breast',
-                required: ['broccoli', 'cherry_tomato', 'sauce_remove'],
-                forbidden: ['mayo_add'],
-                hint: '닭가슴살에 브로콜리와 방울토마토를 올리고 소스는 싹 지워라!',
-                lore: '피트니스 대회 전날 선수들이 먹는다는 소금 0% 전설의 근육 식단.'
-            },
-            {
-                id: 'r4',
-                name: '물배 채우기 대작전',
-                category: 'low_cal',
-                foodId: 'americano',
-                required: ['water_lots', 'ice_lots'],
-                forbidden: ['whipped_cream', 'cheese_add', 'syrup_remove'],
-                hint: '아메리카노에 물과 얼음을 그득히 채워 칼로리를 희석시키자!',
-                lore: '공복을 극복하기 위해 물과 얼음으로 위장을 속이는 눈물겨운 조합.'
-            },
-            {
-                id: 'r5',
-                name: '치킨의 탈을 쓴 샐러드',
-                category: 'low_cal',
-                foodId: 'chicken',
-                required: ['cabbage_lots', 'skin_remove', 'sauce_remove'],
-                forbidden: ['cheeseball', 'french_fries', 'yangnyeom_add'],
-                hint: '치킨을 먹되, 튀김옷을 떼어내고 양배추 샐러드를 잔뜩 더하고 양념을 뺀다면?',
-                lore: '치킨은 먹고 싶지만 살은 빼고 싶은 인류의 위대한 타협점.'
-            },
-            {
-                id: 'r6',
-                name: '혈관 파괴 풀악셀',
-                category: 'high_cal',
-                foodId: 'samgyeopsal',
-                required: ['cheese_add', 'fried_rice', 'veggie_remove'],
-                forbidden: ['choco_syrup'],
-                hint: '삼겹살에 치즈와 볶음밥을 추가하고 쌈채소 따윈 집어치우자!',
-                lore: '지방과 탄수화물의 운명적 만남. 의사 선생님이 보면 눈살을 찌푸릴 극상의 고소함.'
-            },
-            {
-                id: 'r7',
-                name: '마라탕 탕진잼',
-                category: 'high_cal',
-                foodId: 'maratang',
-                required: ['bunmoja', 'guobaorou', 'chinese_noodle', 'beef'],
-                forbidden: [],
-                hint: '마라탕에 분모자, 중국당면, 우삼겹, 꿔바로우까지 풀옵션으로 때려 넣자!',
-                lore: '통장 잔고와 혈관 지방이 비례하여 폭발하는 최고의 스트레스 해소제.'
-            },
-            {
-                id: 'r8',
-                name: '단짠단짠 악마의 유혹',
-                category: 'high_cal',
-                foodId: 'pizza',
-                required: ['cheese_crust', 'pepperoni_add', 'garlic_dipping_2'],
-                forbidden: [],
-                hint: '피자에 치즈크러스트와 페퍼로니를 얹고 갈릭디핑소스 2개를 듬뿍!',
-                lore: '한 조각 베어 물면 미소가 절로 나오는 칼로리 폭탄의 결정체.'
-            },
-            {
-                id: 'r9',
-                name: '생크림 폭탄 투하',
-                category: 'high_cal',
-                foodId: 'cake',
-                required: ['cream_double', 'choco_syrup', 'ice_cream'],
-                forbidden: ['berry_remove'],
-                hint: '케이크에 생크림 2배, 초코시럽, 바닐라 아이스크림을 올리자!',
-                lore: '당충전 1000%! 먹는 즉시 뇌에서 행복 호르몬이 분출되는 기적의 디저트.'
-            },
-            {
-                id: 'r10',
-                name: '치느님 영접 풀세트',
-                category: 'high_cal',
-                foodId: 'chicken',
-                required: ['cheeseball', 'french_fries', 'yangnyeom_add'],
-                forbidden: ['skin_remove', 'sauce_remove'],
-                hint: '바삭한 치킨에 치즈볼, 감자튀김, 양념소스까지 완벽 구비!',
-                lore: '야식 1위의 위엄! 주말 밤 영화 보며 먹으면 세상 부러울 게 없는 조합.'
-            },
-            {
-                id: 'r11',
-                name: '민초단도 울고 갈 괴식',
-                category: 'weird',
-                foodId: 'americano',
-                required: ['cheese_add', 'whipped_cream'],
-                forbidden: [],
-                hint: '시원 쌉싸름한 아메리카노에 짭조름한 치즈와 달콤한 휘핑크림을 넣는 괴식?!',
-                lore: '단짠 쌉싸름의 기괴한 조화! 도전정신 넘치는 미식가들만의 비밀 음료.'
-            },
-            {
-                id: 'r12',
-                name: '삼겹살 디저트 에디션',
-                category: 'weird',
-                foodId: 'samgyeopsal',
-                required: ['choco_syrup', 'cheese_add'],
-                forbidden: [],
-                hint: '노릇한 삼겹살에 초코시럽을 듬뿍 뿌리고 치즈를 얹어 고소달콤하게?',
-                lore: '고기의 육즙과 초콜릿의 달콤함이 어우러진 차세대 초경악 디저트.'
-            }
-        ];
-
-        /* ===================================================================
-           3. SOUND EFFECTS SYNTHESIZER (Web Audio API)
-           =================================================================== */
-        const AudioFX = {
-            ctx: null,
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            },
-            playClick() {
-                try {
-                    this.init();
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
-                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.08);
-                } catch(e) {}
-            },
-            playEat() {
-                try {
-                    this.init();
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.15);
-                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.15);
-                } catch(e) {}
-            },
-            playFanfare() {
-                try {
-                    this.init();
-                    const notes = [261.63, 329.63, 392.00, 523.25];
-                    notes.forEach((freq, idx) => {
-                        const osc = this.ctx.createOscillator();
-                        const gain = this.ctx.createGain();
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
-                        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.1);
-                        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.3);
-                        osc.connect(gain);
-                        gain.connect(this.ctx.destination);
-                        osc.start(this.ctx.currentTime + idx * 0.1);
-                        osc.stop(this.ctx.currentTime + idx * 0.1 + 0.3);
-                    });
-                } catch(e) {}
-            }
-        };
-
-        /* ===================================================================
-           4. PROCEDURAL AVATAR FALLBACK CANVAS GENERATOR
-           =================================================================== */
-        function createProceduralAvatarCanvas(charId, type) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 300;
-            canvas.height = 300;
-            const ctx = canvas.getContext('2d');
-
-            // Background Fill
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, 300);
-            bgGrad.addColorStop(0, charId === 'sunseok' ? '#1e293b' : '#331e2e');
-            bgGrad.addColorStop(1, charId === 'sunseok' ? '#0f172a' : '#1f131d');
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(0, 0, 300, 300);
-
-            // Face Circle
-            ctx.save();
-            ctx.fillStyle = '#fde2d1'; // Skin tone
-            ctx.beginPath();
-            
-            if (type === 'fat') {
-                ctx.ellipse(150, 160, 95, 105, 0, 0, Math.PI * 2); // Chubby round
-            } else if (type === 'thin') {
-                ctx.ellipse(150, 150, 70, 90, 0, 0, Math.PI * 2);  // Slim face
-            } else {
-                ctx.ellipse(150, 155, 82, 95, 0, 0, Math.PI * 2);  // Normal
-            }
-            ctx.fill();
-
-            // Cheeks Blush
-            ctx.fillStyle = 'rgba(255, 120, 140, 0.4)';
-            ctx.beginPath();
-            ctx.arc(110, 175, 18, 0, Math.PI * 2);
-            ctx.arc(190, 175, 18, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Eyes
-            ctx.fillStyle = '#1e293b';
-            ctx.beginPath();
-            if (type === 'fat') {
-                // Happy curved eyes
-                ctx.arc(115, 145, 8, Math.PI, Math.PI * 2);
-                ctx.arc(185, 145, 8, Math.PI, Math.PI * 2);
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = '#1e293b';
-                ctx.stroke();
-            } else if (type === 'thin') {
-                // Wide hollow eyes
-                ctx.arc(115, 140, 10, 0, Math.PI * 2);
-                ctx.arc(185, 140, 10, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                // Standard pretty eyes
-                ctx.arc(115, 145, 8, 0, Math.PI * 2);
-                ctx.arc(185, 145, 8, 0, Math.PI * 2);
-                ctx.fill();
-                // Eye highlights
-                ctx.fillStyle = '#ffffff';
-                ctx.arc(117, 143, 3, 0, Math.PI * 2);
-                ctx.arc(187, 143, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Mouth
-            ctx.beginPath();
-            ctx.strokeStyle = '#991b1b';
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            if (type === 'fat') {
-                ctx.arc(150, 175, 14, 0, Math.PI); // Big open smile
-            } else if (type === 'thin') {
-                ctx.moveTo(140, 185); ctx.lineTo(160, 185); // Flat line
-            } else {
-                ctx.arc(150, 170, 10, 0.1, Math.PI - 0.1); // Gentle smile
-            }
-            ctx.stroke();
-
-            // Double chin line if fat
-            if (type === 'fat') {
-                ctx.beginPath();
-                ctx.strokeStyle = '#e2b39c';
-                ctx.lineWidth = 3;
-                ctx.arc(150, 205, 35, 0.2, Math.PI - 0.2);
-                ctx.stroke();
-            }
-
-            // Hair & Accessories depending on character
-            ctx.fillStyle = '#1e1b18'; // Dark hair color
-            
-            if (charId === 'sunseok') {
-                // 5:5 Parted Short Hair
-                ctx.beginPath();
-                ctx.moveTo(65, 150);
-                ctx.quadraticCurveTo(70, 70, 150, 65); // Left hair arch
-                ctx.quadraticCurveTo(230, 70, 235, 150); // Right hair arch
-                ctx.lineTo(210, 100);
-                ctx.lineTo(150, 85); // Center part notch
-                ctx.lineTo(90, 100);
-                ctx.closePath();
-                ctx.fill();
-            } else {
-                // Eopueopu: Long black hair cascading + see-through bangs + necklace
-                // Long Hair Side Flaps
-                ctx.beginPath();
-                ctx.moveTo(60, 120);
-                ctx.quadraticCurveTo(55, 260, 85, 290);
-                ctx.lineTo(105, 290);
-                ctx.quadraticCurveTo(80, 200, 80, 130);
-                ctx.closePath();
-                ctx.fill();
-
-                ctx.beginPath();
-                ctx.moveTo(240, 120);
-                ctx.quadraticCurveTo(245, 260, 215, 290);
-                ctx.lineTo(195, 290);
-                ctx.quadraticCurveTo(220, 200, 220, 130);
-                ctx.closePath();
-                ctx.fill();
-
-                // Top Hair & See-through Bangs
-                ctx.beginPath();
-                ctx.arc(150, 120, 85, Math.PI * 1.1, Math.PI * 1.9);
-                ctx.fill();
-
-                // Soft Bangs strands
-                ctx.lineWidth = 6;
-                ctx.strokeStyle = '#1e1b18';
-                ctx.beginPath();
-                ctx.moveTo(130, 95); ctx.lineTo(132, 125);
-                ctx.moveTo(150, 95); ctx.lineTo(150, 128);
-                ctx.moveTo(170, 95); ctx.lineTo(168, 125);
-                ctx.stroke();
-
-                // Golden Heart Necklace
-                ctx.strokeStyle = '#ffd700';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(150, 215, 25, 0.2, Math.PI - 0.2);
-                ctx.stroke();
-                // Pendant
-                ctx.fillStyle = '#ff4757';
-                ctx.beginPath();
-                ctx.arc(150, 242, 5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            ctx.restore();
-            return canvas;
-        }
-
-        // Fallback image helper for Lobby img tags
-        function loadLobbyFallback(charId, imgElem) {
-            const canvas = createProceduralAvatarCanvas(charId, 'normal');
-            imgElem.src = canvas.toDataURL();
-        }
-
-        /* ===================================================================
-           5. THREE.JS 3D SCENE & MORPHING ENGINE
-           =================================================================== */
-        let scene, camera, renderer;
-        let characterGroup, bodyMesh, headMesh, headMaterial;
-        let texturesCache = {};
-        let isEatingAnimation = false;
-
-        function init3DScene() {
-            const container = document.getElementById('canvasContainer');
-            container.innerHTML = ''; // Clear existing
-
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0f172a);
-
-            // Camera setup
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.set(0, 1.2, 5.5);
-
-            // Renderer setup
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-            container.appendChild(renderer.domElement);
-
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0xfffaed, 0.9);
-            dirLight.position.set(3, 6, 4);
-            dirLight.castShadow = true;
-            scene.add(dirLight);
-
-            const pointLight = new THREE.PointLight(0xf59e0b, 0.4, 10);
-            pointLight.position.set(-3, 2, -2);
-            scene.add(pointLight);
-
-            // Base Character Group
-            characterGroup = new THREE.Group();
-            scene.add(characterGroup);
-
-            // Build 3D Character Body & Head
-            build3DCharacterModel();
-
-            // Mouse Drag Camera Rotation Logic
-            let isDragging = false;
-            let previousMouseX = 0;
-
-            renderer.domElement.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                previousMouseX = e.clientX;
-            });
-
-            window.addEventListener('mouseup', () => isDragging = false);
-
-            renderer.domElement.addEventListener('mousemove', (e) => {
-                if (!isDragging || !characterGroup) return;
-                const deltaX = e.clientX - previousMouseX;
-                characterGroup.rotation.y += deltaX * 0.01;
-                previousMouseX = e.clientX;
-            });
-
-            // Touch events for mobile/iPad
-            renderer.domElement.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) {
-                    isDragging = true;
-                    previousMouseX = e.touches[0].clientX;
-                }
-            });
-
-            window.addEventListener('touchend', () => isDragging = false);
-
-            renderer.domElement.addEventListener('touchmove', (e) => {
-                if (!isDragging || !characterGroup || e.touches.length !== 1) return;
-                const deltaX = e.touches[0].clientX - previousMouseX;
-                characterGroup.rotation.y += deltaX * 0.01;
-                previousMouseX = e.touches[0].clientX;
-            });
-
-            // Handle Window Resize
-            window.addEventListener('resize', onWindowResize);
-
-            // Start Render Loop
-            animate3D();
-        }
-
-        function build3DCharacterModel() {
-            // Clean up group
-            while(characterGroup.children.length > 0) { 
-                characterGroup.remove(characterGroup.children[0]); 
-            }
-
-            // Head Sphere Mesh with Canvas Texture
-            const headGeo = new THREE.SphereGeometry(0.85, 32, 32);
-            headMaterial = new THREE.MeshStandardMaterial({
-                roughness: 0.4,
-                metalness: 0.1
-            });
-
-            headMesh = new THREE.Mesh(headGeo, headMaterial);
-            headMesh.position.y = 1.4;
-            characterGroup.add(headMesh);
-
-            // Torso / Body Mesh
-            const bodyGeo = new THREE.CylinderGeometry(0.65, 0.75, 1.3, 32);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.5 });
-            bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-            bodyMesh.position.y = 0.35;
-            characterGroup.add(bodyMesh);
-
-            // Limbs (Hands & Feet)
-            const handGeo = new THREE.SphereGeometry(0.2, 16, 16);
-            const handMat = new THREE.MeshStandardMaterial({ color: 0xfde2d1 });
-
-            const leftHand = new THREE.Mesh(handGeo, handMat);
-            leftHand.name = "leftHand";
-            leftHand.position.set(-0.85, 0.5, 0);
-            characterGroup.add(leftHand);
-
-            const rightHand = new THREE.Mesh(handGeo, handMat);
-            rightHand.name = "rightHand";
-            rightHand.position.set(0.85, 0.5, 0);
-            characterGroup.add(rightHand);
-
-            // Shadow Ground Plane
-            const planeGeo = new THREE.PlaneGeometry(10, 10);
-            const planeMat = new THREE.MeshBasicMaterial({ color: 0x090d16 });
-            const plane = new THREE.Mesh(planeGeo, planeMat);
-            plane.rotation.x = -Math.PI / 2;
-            plane.position.y = -0.3;
-            scene.add(plane);
-
-            update3DMorphing();
-        }
-
-        // Dynamically update Face Texture & Body Morph scale according to weight & character
-        function update3DMorphing() {
-            if (!headMesh || !bodyMesh) return;
-
-            const charId = GAME_STATE.character;
-            const w = GAME_STATE.weight;
-
-            // Determine face type
-            let faceType = 'normal';
-            if (w < 30) faceType = 'thin';
-            else if (w >= 80) faceType = 'fat';
-
-            // Check & load face texture safely
-            const textureKey = `${charId}_${faceType}`;
-            if (texturesCache[textureKey]) {
-                headMaterial.map = texturesCache[textureKey];
-                headMaterial.needsUpdate = true;
-            } else {
-                const imgPath = `${charId}_${faceType}.jpg`;
-                const loader = new THREE.TextureLoader();
-                
-                loader.load(
-                    imgPath,
-                    (tex) => {
-                        tex.wrapS = THREE.ClampToEdgeWrapping;
-                        tex.wrapT = THREE.ClampToEdgeWrapping;
-                        texturesCache[textureKey] = tex;
-                        headMaterial.map = tex;
-                        headMaterial.needsUpdate = true;
-                    },
-                    undefined,
-                    () => {
-                        // Fallback to generated canvas texture
-                        const canvas = createProceduralAvatarCanvas(charId, faceType);
-                        const canvasTex = new THREE.CanvasTexture(canvas);
-                        texturesCache[textureKey] = canvasTex;
-                        headMaterial.map = canvasTex;
-                        headMaterial.needsUpdate = true;
-                    }
-                );
-            }
-
-            // Body Scaling Logic based on weight (smooth interpolation)
-            const fatRatio = Math.max(0, Math.min(1.8, (w - 30) / 50)); // 0 at 30kg, 1 at 80kg
-            const bodyX = 0.65 + fatRatio * 0.7;
-            const bodyZ = 0.65 + fatRatio * 0.7;
-            const bodyY = w < 30 ? 1.1 : (w >= 80 ? 1.4 : 1.3);
-
-            bodyMesh.scale.set(bodyX, bodyY, bodyZ);
-
-            // Adjust hand positions when fat
-            const leftHand = characterGroup.getObjectByName("leftHand");
-            const rightHand = characterGroup.getObjectByName("rightHand");
-            if (leftHand && rightHand) {
-                leftHand.position.x = -0.85 - fatRatio * 0.45;
-                rightHand.position.x = 0.85 + fatRatio * 0.45;
-            }
-
-            // Change Body Color according to character
-            bodyMesh.material.color.setHex(charId === 'sunseok' ? 0x2563eb : 0xec4899);
-        }
-
-        // Render Loop Animation
-        let clock = new THREE.Clock();
-        function animate3D() {
-            requestAnimationFrame(animate3D);
-
-            const elapsedTime = clock.getElapsedTime();
-
-            if (characterGroup) {
-                if (isEatingAnimation) {
-                    // Jump up animation when eating
-                    characterGroup.position.y = Math.abs(Math.sin(elapsedTime * 12)) * 0.4;
-                    characterGroup.rotation.y += 0.05;
-                } else {
-                    // Normal subtle breathing idle wobble
-                    characterGroup.position.y = Math.sin(elapsedTime * 2) * 0.05;
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        function onWindowResize() {
-            const container = document.getElementById('canvasContainer');
-            if (!container || !renderer || !camera) return;
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        }
-
-        /* ===================================================================
-           6. UI & GAME PLAY FLOW
-           =================================================================== */
-        function selectCharacter(charId) {
-            AudioFX.playClick();
-            GAME_STATE.character = charId;
-            
-            // Switch UI screens
-            document.getElementById('lobbyScreen').classList.add('hidden');
-            document.getElementById('gameScreen').classList.remove('hidden');
-
-            // Initialize 3D Engine & Canvas
-            setTimeout(() => {
-                init3DScene();
-                updateUI();
-                triggerRandomDialogue('idle');
-            }, 50);
-        }
-
-        function returnToLobby() {
-            AudioFX.playClick();
-            document.getElementById('gameScreen').classList.add('hidden');
-            document.getElementById('lobbyScreen').classList.remove('hidden');
-        }
-
-        function updateUI() {
-            const char = CHARACTERS[GAME_STATE.character];
-            
-            // HUD Updates
-            document.getElementById('hudCharName').innerText = char.name;
-            document.getElementById('hudPassiveBadge').innerText = char.passiveName;
-            document.getElementById('hudPassiveDesc').innerText = char.passiveDesc;
-            
-            // Avatar HUD Image
-            const hudAvatar = document.getElementById('hudCharAvatar');
-            const faceType = GAME_STATE.weight < 30 ? 'thin' : (GAME_STATE.weight >= 80 ? 'fat' : 'normal');
-            hudAvatar.src = char[`avatar${faceType.charAt(0).toUpperCase() + faceType.slice(1)}`];
-            hudAvatar.onerror = () => {
-                hudAvatar.src = createProceduralAvatarCanvas(char.id, faceType).toDataURL();
-            };
-
-            // Weight Display
-            const w = GAME_STATE.weight;
-            document.getElementById('hudWeightText').innerText = `${w.toFixed(1)} kg`;
-            document.getElementById('canvasWeightDisplay').innerText = `${w.toFixed(1)} kg`;
-
-            // Weight Status Badge
-            const statusBadge = document.getElementById('hudStatusBadge');
-            if (w < 30) {
-                statusBadge.innerText = '⚠️ 저체중 (마름)';
-                statusBadge.className = 'font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded';
-            } else if (w >= 80) {
-                statusBadge.innerText = '⚠️ 고체중 (통통)';
-                statusBadge.className = 'font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded';
-            } else {
-                statusBadge.innerText = '✨ 정상 체중';
-                statusBadge.className = 'font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded';
-            }
-
-            // Weight Progress Bar % (Range 20kg to 100kg)
-            const pct = Math.max(5, Math.min(100, ((w - 20) / 80) * 100));
-            document.getElementById('weightProgressBar').style.width = `${pct}%`;
-
-            // Active Buff Indicator Bar
-            const buffBar = document.getElementById('activeBuffBar');
-            if (GAME_STATE.buffTurns > 0) {
-                buffBar.classList.remove('hidden');
-                if (GAME_STATE.character === 'sunseok') {
-                    document.getElementById('activeBuffText').innerText = `🔥 폭풍 흡수 모드 온!! (칼로리 1.5배 흡수 / 남은 턴: ${GAME_STATE.buffTurns}턴)`;
-                } else {
-                    document.getElementById('activeBuffText').innerText = `✨ 기초대사량 폭발 모드!! (칼로리 0.2배 흡수 쉴드 / 남은 턴: ${GAME_STATE.buffTurns}턴)`;
-                }
-            } else {
-                buffBar.classList.add('hidden');
-            }
-
-            // Update Pokedex Discovered Counter Badges
-            const countStr = `${GAME_STATE.discoveredRecipes.size} / ${GOLDEN_RECIPES.length}`;
-            document.getElementById('hudPokedexCount').innerText = countStr;
-            document.getElementById('lobbyPokedexBadge').innerText = countStr;
-
-            // Render Food Grid & Customizer
-            renderFoodGrid();
-            renderIngredientCustomizer();
-
-            // 3D Morph update
-            update3DMorphing();
-        }
-
-        // Speech Bubble Trigger with Random Lines
-        function triggerRandomDialogue(category, customText = null) {
-            const char = CHARACTERS[GAME_STATE.character];
-            const bubble = document.getElementById('speechBubble');
-            const speechText = document.getElementById('speechText');
-
-            let lines = char.dialogue[category] || char.dialogue.idle;
-            
-            // Priority checks if state is extreme
-            if (!customText) {
-                if (GAME_STATE.weight < 30) lines = char.dialogue.thin;
-                else if (GAME_STATE.weight >= 80) lines = char.dialogue.fat;
-            }
-
-            const chosenText = customText || lines[Math.floor(Math.random() * lines.length)];
-            
-            speechText.innerText = `"${chosenText}"`;
-            
-            // Pop animation
-            bubble.style.transform = 'translate(-50%, -10px) scale(1.05)';
-            setTimeout(() => {
-                bubble.style.transform = 'translate(-50%, 0) scale(1)';
-            }, 200);
-        }
-
-        function setWeight(val) {
-            AudioFX.playClick();
-            GAME_STATE.weight = val;
-            updateUI();
-            triggerRandomDialogue('idle');
-        }
-
-        /* ===================================================================
-           7. FOOD SELECTION & INGREDIENT CUSTOMIZER LOGIC
-           =================================================================== */
-        function renderFoodGrid() {
-            const grid = document.getElementById('foodGrid');
-            grid.innerHTML = '';
-
-            Object.values(FOOD_DATA).forEach(food => {
-                const isSelected = food.id === GAME_STATE.selectedFoodId;
-                const btn = document.createElement('button');
-                btn.className = `p-2 rounded-xl flex flex-col items-center justify-center border transition-all ${
-                    isSelected 
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 scale-105 shadow-md shadow-amber-500/10' 
-                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-750 hover:text-slate-200'
-                }`;
-                btn.onclick = () => selectFood(food.id);
-                btn.innerHTML = `
-                    <span class="text-2xl sm:text-3xl mb-1">${food.icon}</span>
-                    <span class="text-[11px] font-bold truncate w-full text-center">${food.name}</span>
-                `;
-                grid.appendChild(btn);
-            });
-        }
-
-        function selectFood(foodId) {
-            AudioFX.playClick();
-            GAME_STATE.selectedFoodId = foodId;
-            GAME_STATE.selectedIngredients = {};
-            
-            // Set defaults if any
-            const food = FOOD_DATA[foodId];
-            food.ingredients.forEach(ing => {
-                if (ing.default) GAME_STATE.selectedIngredients[ing.id] = true;
-            });
-
-            renderFoodGrid();
-            renderIngredientCustomizer();
-        }
-
-        function renderIngredientCustomizer() {
-            const food = FOOD_DATA[GAME_STATE.selectedFoodId];
-            document.getElementById('selectedFoodIcon').innerText = food.icon;
-            document.getElementById('selectedFoodTitle').innerText = food.name;
-            document.getElementById('selectedFoodDesc').innerText = food.desc;
-
-            const container = document.getElementById('ingredientContainer');
-            container.innerHTML = '';
-
-            food.ingredients.forEach(ing => {
-                const isChecked = !!GAME_STATE.selectedIngredients[ing.id];
-                const label = document.createElement('label');
-                label.className = `flex items-center justify-between p-2 rounded-lg border transition cursor-pointer text-xs ${
-                    isChecked 
-                        ? 'bg-slate-700/80 border-amber-500/50 text-white font-semibold' 
-                        : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800'
-                }`;
-                
-                const calSign = ing.cal >= 0 ? `+${ing.cal}` : `${ing.cal}`;
-                const calColor = ing.cal > 0 ? 'text-rose-400' : 'text-emerald-400';
-
-                label.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleIngredient('${ing.id}')" class="w-4 h-4 accent-amber-500 rounded">
-                        <span>${ing.name}</span>
-                    </div>
-                    <span class="font-mono ${calColor}">${calSign} kcal</span>
-                `;
-                container.appendChild(label);
-            });
-
-            calculateTotalCalorie();
-        }
-
-        function toggleIngredient(ingId) {
-            AudioFX.playClick();
-            GAME_STATE.selectedIngredients[ingId] = !GAME_STATE.selectedIngredients[ingId];
-            renderIngredientCustomizer();
-        }
-
-        function resetIngredients() {
-            AudioFX.playClick();
-            GAME_STATE.selectedIngredients = {};
-            renderIngredientCustomizer();
-        }
-
-        function calculateTotalCalorie() {
-            const food = FOOD_DATA[GAME_STATE.selectedFoodId];
-            let total = food.baseCal;
-            food.ingredients.forEach(ing => {
-                if (GAME_STATE.selectedIngredients[ing.id]) {
-                    total += ing.cal;
-                }
-            });
-            total = Math.max(5, total); // Floor at 5 kcal
-            document.getElementById('totalCalorieText').innerText = total;
-            return total;
-        }
-
-        /* ===================================================================
-           8. EATING ACTION & GOLDEN RECIPE CHECKING
-           =================================================================== */
-        function feedCharacter() {
-            AudioFX.playEat();
-            const cal = calculateTotalCalorie();
-            const foodId = GAME_STATE.selectedFoodId;
-            const activeIngs = Object.keys(GAME_STATE.selectedIngredients).filter(k => GAME_STATE.selectedIngredients[k]);
-
-            // Check Golden Recipes match
-            let matchedRecipe = null;
-            GOLDEN_RECIPES.forEach(recipe => {
-                if (recipe.foodId === foodId) {
-                    const hasAllRequired = recipe.required.every(req => activeIngs.includes(req));
-                    const hasNoForbidden = recipe.forbidden.every(forb => !activeIngs.includes(forb));
-                    if (hasAllRequired && hasNoForbidden) {
-                        matchedRecipe = recipe;
-                    }
-                }
-            });
-
-            // Trigger eating animation
-            isEatingAnimation = true;
-            setTimeout(() => isEatingAnimation = false, 1200);
-
-            // Calculate Weight Gain based on Passives & Buffs
-            let absorptionRate = CHARACTERS[GAME_STATE.character].baseMultiplier;
-
-            if (GAME_STATE.buffTurns > 0) {
-                if (GAME_STATE.character === 'sunseok') {
-                    absorptionRate = 1.5; // Sunseok boost
-                } else {
-                    absorptionRate = 0.2; // Eopueopu shield
-                }
-                GAME_STATE.buffTurns--;
-            }
-
-            // Calorie to Weight Conversion formula
-            const weightGain = (cal / 500) * absorptionRate;
-            GAME_STATE.weight += weightGain;
-
-            // Dialogue category determination
-            let dialogueCat = cal > 500 ? 'eatHighCal' : (cal < 150 ? 'eatLowCal' : 'eatNormal');
-
-            // Handle Golden Recipe Unlock & Buff Trigger
-            if (matchedRecipe) {
-                const isNew = !GAME_STATE.discoveredRecipes.has(matchedRecipe.id);
-                GAME_STATE.discoveredRecipes.add(matchedRecipe.id);
-                savePokedexProgress();
-
-                // Trigger Character Buffs
-                if (GAME_STATE.character === 'sunseok') {
-                    GAME_STATE.buffTurns = 3;
-                    GAME_STATE.buffType = 'sunseok_boost';
-                } else {
-                    GAME_STATE.buffTurns = 5;
-                    GAME_STATE.buffType = 'eopueopu_shield';
-                }
-
-                AudioFX.playFanfare();
-                triggerRandomDialogue('buffTriggered');
-
-                if (isNew) {
-                    showGoldenDiscoveryModal(matchedRecipe);
-                }
-            } else {
-                triggerRandomDialogue(dialogueCat);
-            }
-
-            updateUI();
-        }
-
-        /* ===================================================================
-           9. POKEDEX MODAL & LOCALSTORAGE
-           =================================================================== */
-        let currentPokedexFilter = 'all';
-
-        function openPokedexModal() {
-            AudioFX.playClick();
-            document.getElementById('pokedexModal').classList.remove('hidden');
-            renderPokedexGrid();
-        }
-
-        function closePokedexModal() {
-            AudioFX.playClick();
-            document.getElementById('pokedexModal').classList.add('hidden');
-        }
-
-        function filterPokedex(cat) {
-            AudioFX.playClick();
-            currentPokedexFilter = cat;
-            
-            // Update filter button styles
-            document.querySelectorAll('.pokedex-filter-btn').forEach(btn => {
-                btn.className = 'pokedex-filter-btn px-3 py-1.5 rounded-lg font-bold bg-slate-800 text-slate-300 hover:bg-slate-700';
-            });
-            event.target.className = 'pokedex-filter-btn px-3 py-1.5 rounded-lg font-bold bg-amber-500 text-slate-900';
-
-            renderPokedexGrid();
-        }
-
-        function renderPokedexGrid() {
-            const grid = document.getElementById('pokedexGrid');
-            grid.innerHTML = '';
-
-            const discovered = GAME_STATE.discoveredRecipes;
-            const total = GOLDEN_RECIPES.length;
-            const pct = Math.round((discovered.size / total) * 100);
-            
-            document.getElementById('pokedexProgressText').innerText = `발견한 황금 조합: ${discovered.size} / ${total} (${pct}%)`;
-
-            const filteredList = GOLDEN_RECIPES.filter(r => currentPokedexFilter === 'all' || r.category === currentPokedexFilter);
-
-            filteredList.forEach(recipe => {
-                const isUnlocked = discovered.has(recipe.id);
-                const card = document.createElement('div');
-                
-                let categoryBadge = '';
-                if (recipe.category === 'low_cal') categoryBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🟢 저칼로리 황금</span>';
-                else if (recipe.category === 'high_cal') categoryBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40">🔴 고칼로리 황금</span>';
-                else categoryBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40">🟣 괴식 황금</span>';
-
-                if (isUnlocked) {
-                    // Unlocked Full Card
-                    card.className = 'bg-slate-800/90 border border-amber-500/40 rounded-2xl p-4 space-y-2 relative shadow-lg gold-glow';
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between border-b border-slate-700 pb-2">
-                            <h4 class="font-black text-amber-300 text-base flex items-center gap-2">
-                                <span>✨ ${recipe.name}</span>
-                            </h4>
-                            ${categoryBadge}
-                        </div>
-                        <p class="text-xs text-slate-300 italic bg-slate-950/40 p-2 rounded-lg">"${recipe.lore}"</p>
-                        <div class="text-[11px] text-slate-400 font-mono">
-                            <span class="text-amber-400 font-bold">필수 조합:</span> ${recipe.required.map(id => getIngredientNameById(recipe.foodId, id)).join(' + ')}
-                        </div>
-                    `;
-                } else {
-                    // Locked Hint Card
-                    card.className = 'bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2 opacity-80';
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                            <h4 class="font-bold text-slate-500 text-base flex items-center gap-2">
-                                <span>🔒 ??? [미해금 조합]</span>
-                            </h4>
-                            ${categoryBadge}
-                        </div>
-                        <p class="text-xs text-amber-400/80 font-medium">💡 힌트: ${recipe.hint}</p>
-                        <div class="text-[11px] text-slate-600">음식: ${FOOD_DATA[recipe.foodId].name}</div>
-                    `;
-                }
-                grid.appendChild(card);
-            });
-        }
-
-        function getIngredientNameById(foodId, ingId) {
-            const food = FOOD_DATA[foodId];
-            if (!food) return ingId;
-            const ing = food.ingredients.find(i => i.id === ingId);
-            return ing ? ing.name : ingId;
-        }
-
-        function savePokedexProgress() {
-            try {
-                const arr = Array.from(GAME_STATE.discoveredRecipes);
-                localStorage.setItem('calorie_game_pokedex', JSON.stringify(arr));
-            } catch(e) {}
-        }
-
-        function loadPokedexProgress() {
-            try {
-                const saved = localStorage.getItem('calorie_game_pokedex');
-                if (saved) {
-                    const arr = JSON.parse(saved);
-                    GAME_STATE.discoveredRecipes = new Set(arr);
-                }
-            } catch(e) {}
-        }
-
-        function resetPokedexProgress() {
-            if (confirm("정말로 모든 황금 레시피 도감 수집 기록을 초기화하시겠습니까?")) {
-                AudioFX.playClick();
-                GAME_STATE.discoveredRecipes.clear();
-                savePokedexProgress();
-                renderPokedexGrid();
-                updateUI();
-            }
-        }
-
-        function showGoldenDiscoveryModal(recipe) {
-            document.getElementById('discoveredRecipeTitle').innerText = recipe.name;
-            document.getElementById('discoveredRecipeLore').innerText = `"${recipe.lore}"`;
-            
-            const buffDesc = GAME_STATE.character === 'sunseok' 
-                ? '🔥 순순순석 특수 모드: 3턴 동안 먹는 칼로리 1.5배 흡수!'
-                : '✨ 어푸어푸 특수 모드: 5턴 동안 먹는 칼로리 0.2배만 흡수!';
-            document.getElementById('discoveredBuffDesc').innerText = buffDesc;
-
-            document.getElementById('goldenDiscoveryModal').classList.remove('hidden');
-
-            try {
-                confetti({
-                    particleCount: 100,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
-            } catch(e) {}
-        }
-
-        function closeGoldenDiscoveryModal() {
-            AudioFX.playClick();
-            document.getElementById('goldenDiscoveryModal').classList.add('hidden');
-        }
-
-        /* ===================================================================
-           10. JUMP ROPE MINI-GAME LOGIC
-           =================================================================== */
-        let ropeAngle = 0;
-        let isJumping = false;
-        let jumpY = 0;
-        let jumpVel = 0;
-        let minigameAnimId = null;
-
-        function openMinigameModal() {
-            AudioFX.playClick();
-            GAME_STATE.minigameJumps = 0;
-            GAME_STATE.minigameBurnedKg = 0;
-            document.getElementById('minigameScore').innerText = '0회';
-            document.getElementById('minigameBurned').innerText = '-0.0 kg';
-            document.getElementById('minigameModal').classList.remove('hidden');
-
-            initJumpRopeCanvas();
-        }
-
-        function closeMinigameModal() {
-            AudioFX.playClick();
-            if (minigameAnimId) cancelAnimationFrame(minigameAnimId);
-            document.getElementById('minigameModal').classList.add('hidden');
-            updateUI();
-        }
-
-        function initJumpRopeCanvas() {
-            const canvas = document.getElementById('jumpRopeCanvas');
-            const area = document.getElementById('minigameArea');
-            canvas.width = area.clientWidth;
-            canvas.height = area.clientHeight;
-            
-            ropeAngle = 0;
+        img.src = url;
+      }
+
+      // 로딩 중에도 즉시 반응하도록 임시 텍스처 먼저 세팅 후 비동기 교체
+      applyTextureToHead(createFallbackFaceCanvas(charKey, stage));
+      tryLoadNext();
+    }
+
+    function applyTextureToHead(texture) {
+      if (!faceMaterial) return;
+      faceMaterial.map = texture;
+      faceMaterial.needsUpdate = true;
+    }
+
+    // ==========================================
+    // 6. 애니메이션 & 체중별 3D 얼굴·체형 실시간 변형
+    // ==========================================
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      if (characterGroup && headGroup && bodyMesh) {
+        const w = gameState.weight;
+        // 체중 비율 (30kg -> 0, 55kg -> 0.5, 80kg -> 1.0, 110kg -> 1.6)
+        const fatRatio = Math.max(-0.35, (w - 55) / 25);
+
+        // 1) 살랑살랑 움직임 (무거울수록 묵직하게 흔들림)
+        const swaySpeed = w >= 80 ? 1.6 : (w < 30 ? 3.2 : 2.3);
+        const swayAmp = w >= 80 ? 0.06 : 0.11;
+        characterGroup.rotation.z = Math.sin(t * swaySpeed) * swayAmp;
+        characterGroup.rotation.y = Math.sin(t * swaySpeed * 0.7) * 0.14;
+
+        // 머리 끄덕임 & 갸우뚱
+        headGroup.rotation.z = Math.sin(t * swaySpeed + 0.6) * 0.08;
+        headGroup.rotation.x = Math.sin(t * 2.0) * 0.04;
+
+        // 2) 점프 애니메이션
+        if (isJumping) {
+          characterGroup.position.y += jumpVelocity;
+          jumpVelocity -= 0.018;
+          if (characterGroup.position.y <= 0) {
+            characterGroup.position.y = 0;
             isJumping = false;
-            jumpY = 0;
-
-            if (minigameAnimId) cancelAnimationFrame(minigameAnimId);
-            loopJumpRope();
+            jumpVelocity = 0;
+          }
+        } else {
+          characterGroup.position.y = Math.abs(Math.sin(t * swaySpeed)) * 0.04;
         }
 
-        function handleJumpRopeInput() {
-            if (!isJumping) {
-                AudioFX.playClick();
-                isJumping = true;
-                jumpVel = -12;
-            }
+        // 3) 몸통 볼륨 LERP 변형
+        const targetBodyX = THREE.MathUtils.clamp(1.0 + fatRatio * 0.52, 0.68, 1.85);
+        const targetBodyZ = THREE.MathUtils.clamp(0.82 + fatRatio * 0.48, 0.58, 1.65);
+        bodyMesh.scale.x += (targetBodyX - bodyMesh.scale.x) * 0.1;
+        bodyMesh.scale.z += (targetBodyZ - bodyMesh.scale.z) * 0.1;
+
+        // 팔 위치 연동
+        const armOffset = 0.48 + (targetBodyX - 1.0) * 0.42;
+        leftArm.position.x = -armOffset;
+        rightArm.position.x = armOffset;
+        leftArm.rotation.z = 0.22 + Math.max(0, fatRatio * 0.28) + Math.sin(t * swaySpeed) * 0.08;
+        rightArm.rotation.z = -0.22 - Math.max(0, fatRatio * 0.28) + Math.sin(t * swaySpeed) * 0.08;
+
+        // 4) 얼굴 두상 볼살 & 턱선 실시간 팽창 (살 쪘을 때 확 티나게!)
+        const targetHeadX = THREE.MathUtils.clamp(1.0 + fatRatio * 0.26, 0.82, 1.42);
+        const targetHeadZ = THREE.MathUtils.clamp(1.0 + fatRatio * 0.22, 0.85, 1.35);
+        headMesh.scale.x += (targetHeadZ - headMesh.scale.x) * 0.1; // 회전된 상태이므로 X가 깊이
+        headMesh.scale.z += (targetHeadX - headMesh.scale.z) * 0.1; // 회전된 상태이므로 Z가 좌우 너비
+        hairGroup.scale.z = headMesh.scale.z;
+        hairGroup.scale.x = headMesh.scale.x;
+
+        // 이중턱/하관 볼륨 메쉬 (55kg 초과 시 서서히 커짐)
+        const jawScale = w > 55 ? THREE.MathUtils.clamp((w - 55) / 30, 0.01, 1.25) : 0.01;
+        jawMesh.scale.x += (jawScale * 1.15 - jawMesh.scale.x) * 0.1;
+        jawMesh.scale.y += (jawScale * 0.65 - jawMesh.scale.y) * 0.1;
+        jawMesh.scale.z += (jawScale * 0.95 - jawMesh.scale.z) * 0.1;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function triggerJump() {
+      isJumping = true;
+      jumpVelocity = 0.22;
+    }
+
+    // ==========================================
+    // 7. 게임 진행 & UI 로직
+    // ==========================================
+    function selectCharacter(charKey) {
+      gameState.charKey = charKey;
+      gameState.weight = 55.0;
+      gameState.turn = 1;
+      gameState.buffTurns = 0;
+      gameState.faceStage = 'normal';
+
+      const char = CHARACTERS[charKey];
+      document.getElementById('hudCharName').textContent = char.name;
+
+      // 의상/머리 색상 반영
+      bodyMesh.material.color.setHex(char.shirtColor);
+      leftArm.material.color.setHex(char.shirtColor);
+      rightArm.material.color.setHex(char.shirtColor);
+      hairGroup.children[0].material.color.setHex(char.hairColor);
+
+      document.getElementById('lobbyScreen').classList.add('hidden');
+      document.getElementById('gameHud').classList.remove('hidden');
+
+      loadCharacterFaceTexture(charKey, 'normal');
+      updateHUD();
+      sayRandomDialogue('start');
+      triggerJump();
+    }
+
+    function returnToLobby() {
+      document.getElementById('gameHud').classList.add('hidden');
+      document.getElementById('lobbyScreen').classList.remove('hidden');
+    }
+
+    function renderFoodBar() {
+      const list = document.getElementById('foodList');
+      list.innerHTML = '';
+      FOOD_MENU.forEach(food => {
+        const badgeColor = food.isLowCal ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+        const card = document.createElement('button');
+        card.className = 'flex-shrink-0 w-28 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-400 rounded-2xl p-2.5 text-center transition transform active:scale-95';
+        card.innerHTML = `
+          <div class="text-3xl mb-1">${food.icon}</div>
+          <div class="font-bold text-xs text-slate-800 truncate">${food.name}</div>
+          <span class="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${badgeColor}">${food.baseCal} kcal</span>
+        `;
+        card.onclick = () => openFoodModal(food);
+        list.appendChild(card);
+      });
+    }
+
+    function openFoodModal(food) {
+      gameState.selectedFood = food;
+      document.getElementById('modalFoodIcon').textContent = food.icon;
+      document.getElementById('modalFoodName').textContent = food.name;
+      document.getElementById('modalFoodDesc').textContent = food.desc;
+
+      const container = document.getElementById('modalIngredients');
+      container.innerHTML = '';
+
+      food.ingredients.forEach(ing => {
+        const sign = ing.cal >= 0 ? `+${ing.cal}` : `${ing.cal}`;
+        const row = document.createElement('label');
+        row.className = 'flex items-center justify-between p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer';
+        row.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <input type="checkbox" value="${ing.id}" ${ing.default ? 'checked' : ''} onchange="recalcModalCalories()" class="w-4 h-4 accent-indigo-600 rounded" />
+            <span class="text-sm font-medium text-slate-700">${ing.name}</span>
+          </div>
+          <span class="text-xs font-bold ${ing.cal > 0 ? 'text-rose-500' : 'text-emerald-600'}">${sign} kcal</span>
+        `;
+        container.appendChild(row);
+      });
+
+      recalcModalCalories();
+      document.getElementById('foodModal').classList.remove('hidden');
+    }
+
+    function closeFoodModal() {
+      document.getElementById('foodModal').classList.add('hidden');
+    }
+
+    function getCheckedIngredientIds() {
+      const inputs = document.querySelectorAll('#modalIngredients input[type="checkbox"]:checked');
+      return Array.from(inputs).map(el => el.value);
+    }
+
+    function calculateFoodResult(food, checkedIds) {
+      let totalCal = food.baseCal;
+      food.ingredients.forEach(ing => {
+        if (checkedIds.includes(ing.id)) totalCal += ing.cal;
+      });
+      totalCal = Math.max(0, totalCal);
+
+      // 황금 레시피 판정
+      const matchedRecipe = GOLDEN_RECIPES.find(gr => {
+        if (gr.foodId !== food.id) return false;
+        const hasAllReq = gr.req.every(r => checkedIds.includes(r));
+        const hasNoForbid = gr.forbid.every(f => !checkedIds.includes(f));
+        return hasAllReq && hasNoForbid;
+      });
+
+      const char = CHARACTERS[gameState.charKey];
+      const mult = char.getMultiplier(gameState);
+      // 기준 400 kcal 대비 증감 계산
+      const netCal = (totalCal - 400) * mult;
+      const weightDiff = netCal / 220;
+
+      return { totalCal, weightDiff, matchedRecipe };
+    }
+
+    function recalcModalCalories() {
+      const food = gameState.selectedFood;
+      if (!food) return;
+      const checkedIds = getCheckedIngredientIds();
+      const { totalCal, weightDiff } = calculateFoodResult(food, checkedIds);
+
+      document.getElementById('modalTotalCal').textContent = `${totalCal} kcal`;
+      const diffEl = document.getElementById('modalWeightDiff');
+      const sign = weightDiff >= 0 ? '+' : '';
+      diffEl.textContent = `${sign}${weightDiff.toFixed(2)} kg`;
+      diffEl.className = `font-game text-lg ${weightDiff >= 0 ? 'text-rose-500' : 'text-emerald-500'}`;
+    }
+
+    function feedDefaultFood() {
+      const food = gameState.selectedFood;
+      const defaultIds = food.ingredients.filter(i => i.default).map(i => i.id);
+      consumeFood(food, defaultIds);
+      closeFoodModal();
+    }
+
+    function feedCustomFood() {
+      const food = gameState.selectedFood;
+      const checkedIds = getCheckedIngredientIds();
+      consumeFood(food, checkedIds);
+      closeFoodModal();
+    }
+
+    function consumeFood(food, checkedIds) {
+      const { totalCal, weightDiff, matchedRecipe } = calculateFoodResult(food, checkedIds);
+      const char = CHARACTERS[gameState.charKey];
+
+      // 턴 경과 및 기존 버프 감소
+      gameState.turn += 1;
+      if (gameState.buffTurns > 0) gameState.buffTurns -= 1;
+
+      // 황금 레시피 발동 체크
+      let goldenTriggered = false;
+      if (matchedRecipe) {
+        gameState.unlockedRecipes.add(matchedRecipe.id);
+        updateDexBadge();
+
+        // 순순순석은 모든 황금조합 3턴간 1.5배 / 어푸어푸는 저칼로리 황금조합 5턴간 0.2배
+        if (char.id === 'sunseok') {
+          gameState.buffTurns = 3;
+          goldenTriggered = true;
+        } else if (char.id === 'eopu' && matchedRecipe.isLowCal) {
+          gameState.buffTurns = 5;
+          goldenTriggered = true;
         }
+        showFloatingText(`🌟 황금조합: ${matchedRecipe.name}!`, '#f59e0b');
+      }
 
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && !document.getElementById('minigameModal').classList.contains('hidden')) {
-                e.preventDefault();
-                handleJumpRopeInput();
-            }
-        });
+      // 체중 반영
+      const prevStage = gameState.faceStage;
+      gameState.weight = Math.max(20.0, +(gameState.weight + weightDiff).toFixed(2));
 
-        function loopJumpRope() {
-            minigameAnimId = requestAnimationFrame(loopJumpRope);
-            const canvas = document.getElementById('jumpRopeCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
+      const sign = weightDiff >= 0 ? '+' : '';
+      showFloatingText(`${sign}${weightDiff.toFixed(2)} kg (${totalCal}kcal)`, weightDiff >= 0 ? '#f43f5e' : '#10b981');
 
-            ctx.clearRect(0, 0, w, h);
+      updateHUD();
+      triggerJump();
 
-            // Update rope rotation
-            const prevRopeY = Math.sin(ropeAngle);
-            ropeAngle += 0.08;
-            const currRopeY = Math.sin(ropeAngle);
+      // 대사 출력 우선순위: 황금조합 > 체형변화 구간 진입 > 일반 식사 반응
+      if (goldenTriggered) {
+        sayRandomDialogue('golden');
+      } else if (gameState.faceStage !== prevStage && gameState.faceStage === 'fat') {
+        sayRandomDialogue('fat');
+      } else if (gameState.faceStage !== prevStage && gameState.faceStage === 'thin') {
+        sayRandomDialogue('thin');
+      } else if (totalCal >= 600) {
+        sayRandomDialogue('eatHigh');
+      } else if (totalCal <= 250) {
+        sayRandomDialogue('eatLow');
+      } else {
+        sayRandomDialogue('eatNormal');
+      }
+    }
 
-            // Update jump physics
-            if (isJumping) {
-                jumpY += jumpVel;
-                jumpVel += 0.8; // Gravity
-                if (jumpY >= 0) {
-                    jumpY = 0;
-                    isJumping = false;
-                }
-            }
+    function setDebugWeight(w) {
+      gameState.weight = w;
+      updateHUD();
+      triggerJump();
+      if (w >= 80) sayRandomDialogue('fat');
+      else if (w < 30) sayRandomDialogue('thin');
+      else sayRandomDialogue('start');
+    }
 
-            // Check Jump Rope collision / success at bottom of arc
-            if (prevRopeY < 0.9 && currRopeY >= 0.9) {
-                if (isJumping && jumpY < -15) {
-                    // Successful jump!
-                    GAME_STATE.minigameJumps++;
-                    document.getElementById('minigameScore').innerText = `${GAME_STATE.minigameJumps}회`;
-                    
-                    if (GAME_STATE.minigameJumps % 10 === 0) {
-                        GAME_STATE.minigameBurnedKg += 0.5;
-                        GAME_STATE.weight = Math.max(20, GAME_STATE.weight - 0.5);
-                        document.getElementById('minigameBurned').innerText = `-${GAME_STATE.minigameBurnedKg.toFixed(1)} kg`;
-                    }
-                }
-            }
+    function updateHUD() {
+      const w = gameState.weight;
+      const char = CHARACTERS[gameState.charKey];
 
-            // Draw Ground Line
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(50, h - 40);
-            ctx.lineTo(w - 50, h - 40);
-            ctx.stroke();
+      document.getElementById('hudWeight').textContent = w.toFixed(1);
+      document.getElementById('hudTurn').textContent = `TURN ${gameState.turn}`;
 
-            // Draw Character Stick Figure
-            const charX = w / 2;
-            const charY = h - 40 + jumpY;
+      // 게이지바 (20kg ~ 100kg 기준)
+      const pct = THREE.MathUtils.clamp(((w - 20) / 80) * 100, 3, 100);
+      document.getElementById('weightBar').style.width = `${pct}%`;
 
-            ctx.fillStyle = GAME_STATE.character === 'sunseok' ? '#3b82f6' : '#ec4899';
-            ctx.beginPath();
-            ctx.arc(charX, charY - 60, 20, 0, Math.PI * 2); // Head
-            ctx.fill();
+      // 체중 구간 판정 및 얼굴 텍스처 교체
+      let nextStage = 'normal';
+      const badge = document.getElementById('hudStateBadge');
+      if (w >= 80) {
+        nextStage = 'fat';
+        badge.textContent = '80kg↑ 통통 버전';
+        badge.className = 'text-xs px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-700';
+      } else if (w < 30) {
+        nextStage = 'thin';
+        badge.textContent = '30kg↓ 마른 버전';
+        badge.className = 'text-xs px-2 py-0.5 rounded-full font-bold bg-cyan-100 text-cyan-700';
+      } else {
+        nextStage = 'normal';
+        badge.textContent = '표준 체형';
+        badge.className = 'text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700';
+      }
 
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 6;
-            ctx.beginPath();
-            ctx.moveTo(charX, charY - 40); ctx.lineTo(charX, charY - 10); // Body
-            ctx.moveTo(charX, charY - 10); ctx.lineTo(charX - 15, charY); // Left leg
-            ctx.moveTo(charX, charY - 10); ctx.lineTo(charX + 15, charY); // Right leg
-            ctx.stroke();
+      if (gameState.faceStage !== nextStage) {
+        gameState.faceStage = nextStage;
+        loadCharacterFaceTexture(gameState.charKey, nextStage);
+      }
 
-            // Draw Dynamic Swinging Rope
-            const ropeYPos = (h - 40) + currRopeY * 70;
-            ctx.strokeStyle = '#f59e0b';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(charX - 80, h - 60);
-            ctx.quadraticCurveTo(charX, ropeYPos, charX + 80, h - 60);
-            ctx.stroke();
+      // 패시브 / 버프 배너
+      const banner = document.getElementById('buffBanner');
+      if (gameState.buffTurns > 0) {
+        banner.textContent = char.buffDesc(gameState.buffTurns);
+        banner.className = 'mt-2 text-xs px-2.5 py-1.5 rounded-xl bg-amber-100 text-amber-800 font-bold border border-amber-300';
+      } else {
+        banner.textContent = `🧬 ${char.passiveDesc}`;
+        banner.className = 'mt-2 text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 text-slate-600 font-medium';
+      }
+    }
+
+    function sayRandomDialogue(category) {
+      const list = CHARACTERS[gameState.charKey].dialogues[category];
+      const msg = list[Math.floor(Math.random() * list.length)];
+      const bubble = document.getElementById('speechBubble');
+      document.getElementById('speechText').textContent = msg;
+
+      bubble.classList.remove('speech-bubble');
+      void bubble.offsetWidth;
+      bubble.classList.add('speech-bubble');
+    }
+
+    function showFloatingText(text, color) {
+      const el = document.createElement('div');
+      el.className = 'float-text';
+      el.style.color = color;
+      el.style.left = `${50 + (Math.random() * 16 - 8)}%`;
+      el.style.top = '42%';
+      el.textContent = text;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1100);
+    }
+
+    // ==========================================
+    // 8. 황금 레시피 도감 모달
+    // ==========================================
+    function updateDexBadge() {
+      document.getElementById('dexCountBadge').textContent = `${gameState.unlockedRecipes.size}/${GOLDEN_RECIPES.length}`;
+    }
+
+    function openDexModal() {
+      const grid = document.getElementById('dexGrid');
+      grid.innerHTML = '';
+
+      GOLDEN_RECIPES.forEach(gr => {
+        const unlocked = gameState.unlockedRecipes.has(gr.id);
+        const typeTag = gr.isLowCal
+          ? '<span class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">저칼로리 황금</span>'
+          : '<span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold">고칼로리 황금</span>';
+
+        const card = document.createElement('div');
+        card.className = unlocked
+          ? 'p-3.5 rounded-2xl border-2 border-amber-400 bg-amber-50/60'
+          : 'p-3.5 rounded-2xl border border-slate-200 bg-slate-50 opacity-75';
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-game text-base ${unlocked ? 'text-slate-900' : 'text-slate-400'}">
+              ${unlocked ? '🌟 ' + gr.name : '🔒 미발견 황금 레시피'}
+            </span>
+            ${typeTag}
+          </div>
+          <p class="text-xs text-slate-600 mt-1">${gr.hint}</p>
+        `;
+        grid.appendChild(card);
+      });
+
+      document.getElementById('dexModal').classList.remove('hidden');
+    }
+
+    function closeDexModal() {
+      document.getElementById('dexModal').classList.add('hidden');
+    }
+
+    // ==========================================
+    // 9. 줄넘기 미니게임 로직
+    // ==========================================
+    let mgInterval = null;
+    let mgTimeLeft = 10.0;
+    let mgJumps = 0;
+    let mgActive = false;
+
+    function openMiniGame() {
+      mgTimeLeft = 10.0;
+      mgJumps = 0;
+      mgActive = true;
+      document.getElementById('mgTimer').textContent = '10.0s';
+      document.getElementById('mgCount').textContent = '0회';
+      document.getElementById('mgBurnWeight').textContent = '0.00';
+      document.getElementById('miniGameModal').classList.remove('hidden');
+
+      clearInterval(mgInterval);
+      mgInterval = setInterval(() => {
+        mgTimeLeft = +(mgTimeLeft - 0.1).toFixed(1);
+        if (mgTimeLeft <= 0) {
+          mgTimeLeft = 0;
+          finishMiniGame();
         }
+        document.getElementById('mgTimer').textContent = `${mgTimeLeft.toFixed(1)}s`;
+      }, 100);
+    }
 
-        /* ===================================================================
-           11. INITIALIZATION ON WINDOW LOAD
-           =================================================================== */
-        window.onload = function() {
-            loadPokedexProgress();
-            
-            // Set initial UI badge counts
-            const countStr = `${GAME_STATE.discoveredRecipes.size} / ${GOLDEN_RECIPES.length}`;
-            document.getElementById('lobbyPokedexBadge').innerText = countStr;
-        };
-    </script>
+    function doJumpRope() {
+      if (!mgActive) return;
+      mgJumps += 1;
+      const burn = mgJumps * 0.08;
+      document.getElementById('mgCount').textContent = `${mgJumps}회`;
+      document.getElementById('mgBurnWeight').textContent = burn.toFixed(2);
+      triggerJump();
+    }
+
+    function finishMiniGame() {
+      if (!mgActive) return;
+      mgActive = false;
+      clearInterval(mgInterval);
+
+      const burnedKg = +(mgJumps * 0.08).toFixed(2);
+      gameState.weight = Math.max(20.0, +(gameState.weight - burnedKg).toFixed(2));
+      updateHUD();
+      closeMiniGame();
+
+      if (burnedKg > 0) {
+        showFloatingText(`🔥 운동 완료! -${burnedKg} kg 감량!`, '#10b981');
+      }
+    }
+
+    function closeMiniGame() {
+      mgActive = false;
+      clearInterval(mgInterval);
+      document.getElementById('miniGameModal').classList.add('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && mgActive) {
+        e.preventDefault();
+        doJumpRope();
+      }
+    });
+
+    // 초기화 실행
+    window.addEventListener('DOMContentLoaded', () => {
+      initThreeJS();
+      renderFoodBar();
+      updateDexBadge();
+    });
+  </script>
 </body>
 </html>
